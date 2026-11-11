@@ -23,7 +23,7 @@ export function Home() {
   const [compare, setCompare] = useState(true)
   const [split, setSplit] = useState(48)
   return <>
-    <div className={styles.announcement}><span className="status-dot" /> A little light. A whole new perspective. <span className={styles.announcementDivider}>/</span><Link to="/studio">Meet your new studio <ArrowRight size={12} /></Link></div>
+    {/* <div className={styles.announcement}><span className="status-dot" /> A little light. A whole new perspective. <span className={styles.announcementDivider}>/</span><Link to="/studio">Meet your new studio <ArrowRight size={12} /></Link></div> */}
     <Header />
     <main id="main">
       <section className={`container ${styles.hero}`}>
