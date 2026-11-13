@@ -31,7 +31,7 @@ export function Home() {
           <div className={styles.heroEyebrow}><span className="status-dot" /><span className="eyebrow">A NEW PERSPECTIVE ON PHOTO EDITING</span></div>
           <h1>Light. Colour.<br /><span>Create.</span></h1>
           <p>The moment is yours. Make the photograph feel like it.<br className={styles.desktopBreak} /> Simple tools, thoughtful presets, and room to explore.</p>
-          <div className={styles.heroActions}><Link to="/studio" className="button primary">Start Editing <ArrowUpRight size={17} /></Link><a href="#features" className={styles.textLink}>Explore the possibilities <ArrowDown size={15} /></a></div>
+          <div className={styles.heroActions}><Link to="/studio" className="button primary">Start Editing <ArrowUpRight size={17} /></Link></div>
           <div className={styles.heroNote}><Check size={13} /> No account needed <span>·</span> Free to create</div>
         </div>
         <div className={styles.heroAside} aria-hidden="true"><div className={styles.lightRings}><div /><div /><div /><span>luma / light</span></div><div className={styles.colorSpectrum}><i /><i /><i /><i /></div><div className={styles.asideMeta}><span>RGBW COLOUR SYSTEM</span><span>01 — ∞</span></div></div></div>

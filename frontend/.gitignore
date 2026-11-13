@@ -1,0 +1,17 @@
+node_modules/
+dist/
+*.tsbuildinfo
+test-results/
+playwright-report/
+.env.local
+
+# Backend environments, secrets and private runtime data
+backend/.venv/
+backend/.uv-cache/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.env
+.env.*
+!.env.example
+backend/.runtime/

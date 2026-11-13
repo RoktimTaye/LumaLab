@@ -1,0 +1,1 @@
+"""LumaLab backend application."""
