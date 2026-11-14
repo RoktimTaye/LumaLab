@@ -1,14 +1,20 @@
 """Resource lifecycle checks with real local storage and no database connections."""
 
 import asyncio
+from datetime import datetime, timedelta, timezone
+import json
 import os
 from pathlib import Path
 import shutil
+import subprocess
 import tempfile
+from threading import Event
+import time
 import unittest
 from unittest.mock import patch
 
 from fastapi import FastAPI
+from PIL import Image
 
 from app.config import RUNTIME_DIR, Settings
 from app.lifespan import lifespan
@@ -123,6 +129,114 @@ class LifespanTests(unittest.TestCase):
                     self.assertNotIn("private/path", str(caught.exception))
                     factory.assert_not_called()
 
+        asyncio.run(check())
+
+    def test_private_run_directory_restricts_access_to_session_files(self):
+        with temporary_storage(self.settings.temp_image_dir) as directory:
+            child = directory / "session"
+            child.mkdir(mode=0o700)
+            (child / "original").write_bytes(b"private photograph")
+            if os.name == "nt":
+                # Inspect real ACLs, including inheritance on child directories/files.
+                script = """
+                $ErrorActionPreference = 'Stop'
+                @('.', 'session', 'session/original') | ForEach-Object {
+                    $acl = if ([IO.Directory]::Exists($_)) { [IO.Directory]::GetAccessControl($_) }
+                           else { [IO.File]::GetAccessControl($_) }
+                    @{ owner = $acl.GetOwner([Security.Principal.SecurityIdentifier]).Value
+                       protected = $acl.AreAccessRulesProtected
+                       rules = @($acl.GetAccessRules($true, $true, [Security.Principal.SecurityIdentifier]) |
+                           ForEach-Object { @{ sid = $_.IdentityReference.Value
+                                               type = $_.AccessControlType.ToString()
+                                               rights = $_.FileSystemRights.ToString() } }) }
+                } | ConvertTo-Json -Depth 4 -Compress
+                """
+                result = subprocess.run([str(Path(os.environ["SystemRoot"]) / "System32/WindowsPowerShell/v1.0/powershell.exe"),
+                    "-NoProfile", "-NonInteractive", "-Command", script], cwd=directory,
+                    capture_output=True, text=True, check=True, timeout=10)
+                entries = json.loads(result.stdout)
+                self.assertEqual(len(entries), 3)
+                self.assertTrue(entries[0]["protected"])
+                for entry in entries:
+                    self.assertTrue(entry["rules"])
+                    self.assertTrue(all(rule["sid"] == entry["owner"] and rule["type"] == "Allow"
+                                        and "FullControl" in rule["rights"] for rule in entry["rules"]))
+            else:
+                self.assertEqual(directory.stat().st_mode & 0o777, 0o700)
+                self.assertEqual(child.stat().st_mode & 0o777, 0o700)
+
+    def test_startup_removes_only_old_run_directories(self):
+        root = self.settings.temp_image_dir
+        root.mkdir()
+        old = root / "lumalab-run-old"
+        recent = root / "lumalab-run-recent"
+        unrelated = root / "other-directory"
+        for directory in (old, recent, unrelated):
+            directory.mkdir()
+            (directory / "original").write_bytes(b"fixture")
+        stale_time = time.time() - 3_700
+        os.utime(old, (stale_time, stale_time))
+        os.utime(unrelated, (stale_time, stale_time))
+        with temporary_storage(root, 3_600) as current:
+            self.assertFalse(old.exists())
+            self.assertTrue(recent.exists())
+            self.assertEqual((unrelated / "original").read_bytes(), b"fixture")
+            self.assertNotEqual(current, recent)
+        self.assertFalse(current.exists())
+        self.assertTrue(recent.exists())
+        self.assertTrue(unrelated.exists())
+
+    def test_periodic_cleanup_removes_expired_session_without_new_requests(self):
+        self.app.state.settings = self.settings.model_copy(update={"cleanup_interval_seconds": 1})
+
+        async def check():
+            async with self.app.router.lifespan_context(self.app):
+                store = self.app.state.image_store
+                record = store.create(b"original", Image.new("RGB", (8, 4), "red"), "photo.png", "PNG")
+                directory = store.sessions[record.image_id].directory
+                store.sessions[record.image_id].expires_at = datetime.now(timezone.utc) - timedelta(seconds=1)
+                await asyncio.sleep(1.2)
+                self.assertNotIn(record.image_id, store.sessions)
+                self.assertFalse(directory.exists())
+            self.assertFalse(self.app.state.storage_dir)
+
+        asyncio.run(check())
+
+    def test_shutdown_waits_for_cleanup_worker_before_removing_run_directory(self):
+        self.app.state.settings = self.settings.model_copy(update={"cleanup_interval_seconds": 1})
+
+        async def check():
+            context = self.app.router.lifespan_context(self.app)
+            await context.__aenter__()
+            directory = self.app.state.storage_dir
+            running, release = Event(), Event()
+
+            def slow_cleanup():
+                running.set()
+                release.wait(3)
+
+            with patch.object(self.app.state.image_store, "purge_expired", side_effect=slow_cleanup):
+                self.assertTrue(await asyncio.to_thread(running.wait, 2))
+                shutdown = asyncio.create_task(context.__aexit__(None, None, None))
+                await asyncio.sleep(0.05)
+                self.assertFalse(shutdown.done())
+                self.assertTrue(directory.exists())
+                release.set()
+                await asyncio.wait_for(shutdown, 2)
+            self.assertFalse(directory.exists())
+
+        asyncio.run(check())
+
+    def test_permission_failure_aborts_startup_and_removes_empty_run(self):
+        async def check():
+            with patch("app.storage.runtime.restrict_directory", side_effect=PermissionError("private/path")):
+                with patch("app.db.pool.ConnectionPool", autospec=True) as factory:
+                    with self.assertRaisesRegex(RuntimeError, "Unable to initialize private temporary storage") as caught:
+                        async with self.app.router.lifespan_context(self.app):
+                            self.fail("Startup must fail")
+                    self.assertNotIn("private/path", str(caught.exception))
+                    factory.assert_not_called()
+            self.assertEqual(list(self.settings.temp_image_dir.iterdir()), [])
         asyncio.run(check())
 
     def test_cleanup_rejects_substituted_path(self):

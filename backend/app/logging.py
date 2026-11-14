@@ -10,7 +10,10 @@ EVENTS = frozenset({
     "startup_failed", "shutdown_started", "shutdown_complete", "lifecycle_failed",
     "lifecycle_cancelled", "readiness_database_unavailable", "readiness_storage_unavailable",
     "database_pool_start_failed", "database_pool_close_failed",
-    "storage_start_failed", "storage_cleanup_failed",
+    "storage_start_failed", "storage_cleanup_failed", "session_cleanup_failed",
+    "presets_unavailable",
+    "image_operation_failed",
+    "request_failed",
 })
 
 

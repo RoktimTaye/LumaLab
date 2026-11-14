@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
-import { ArrowDown, ArrowRight, ArrowUpRight, Check, CheckCheck, ChevronRight, Download, Image, Layers, Maximize2, ScanLine, ShieldCheck, SlidersHorizontal, Sparkles, Sun, Upload } from 'lucide-react'
+import { ArrowUpRight, Check, CheckCheck, ChevronRight, Download, Image, Layers, Maximize2, ScanLine, ShieldCheck, SlidersHorizontal, Sparkles, Sun, Upload } from 'lucide-react'
 import { Header } from '../components/Header'
 import { Brand } from '../components/Brand'
 import { PhotoPreview } from '../components/PhotoPreview'

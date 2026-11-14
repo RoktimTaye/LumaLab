@@ -1,5 +1,220 @@
 # Frontend verification
 
+## Backend D13 verification — 14 November 2026
+
+- Audited the existing authenticated DELETE endpoint. It supports deleting an old image session after a replacement upload succeeds and closing the current session explicitly; deletion requires that session's bearer token and removes its files and record.
+- One new ASGI workflow test uploads two images, confirms the old session still works until explicitly deleted, rejects the replacement token for deleting the old session, verifies deletion leaves the new image usable and unchanged, then closes the new session and confirms both directories are gone. All 42 image API tests passed. The full 98-test backend suite passed at D12; no runtime code changed for D13.
+- Browser-close cleanup is best effort; fixed server expiry and scheduled cleanup are already implemented. Frontend replacement/closure integration remains phase G. No dependencies or frontend behavior changed; D14 remains pending.
+
+## Backend D12 verification — 14 November 2026
+
+- Audited processing and deletion: authorized session access holds the store lock through rendering, enhancement and export, and purge/deletion use the same lock. Expired files therefore stay available to an operation already in progress, then are removed after it releases the lock.
+- Shielded the periodic cleanup worker and awaited it during lifespan cancellation so shutdown cannot remove its run directory while cleanup is still in progress. Two concurrency tests verify that cleanup and deletion wait for an active session and finish afterward, and that shutdown waits for a deliberately blocked cleanup worker. All 98 backend tests passed with `uv run --locked --offline --cache-dir .uv-cache python -m unittest discover -s tests -q`.
+- No dependencies, database or frontend behavior changed. D12 is complete; D13 remains pending.
+
+## Backend D11 verification — 14 November 2026
+
+- Added a lifespan-owned cleanup task at the configured interval, defaulting to five minutes and validated not to exceed it. It removes expired session records/files under the existing store lock without waiting for another request, then stops on shutdown. New uploads use the same purge method.
+- Startup now removes old `lumalab-run-*` directories inside the configured private storage root when their modification time exceeds the session TTL. It preserves recent run directories, unrelated names and non-directory entries; symlinks are skipped. Two lifecycle tests exercise scheduled expiry with a one-second test interval and selective startup removal. All 96 backend tests passed with `uv run --locked --offline --cache-dir .uv-cache python -m unittest discover -s tests -q`.
+- No dependencies, database or frontend behavior changed. The documented deployment is single-process; active-use coordination remains D12. D11 is complete.
+
+## Backend D10 verification — 14 November 2026
+
+- Audited all image session routes. Original preview, adjusted preview, enhancement, export and deletion already require an image-specific bearer token and use the same authorized-session check before accessing files or processing. Token hashes are compared with `secrets.compare_digest`; unknown sessions, invalid tokens and expired sessions have separate responses.
+- Existing ASGI coverage exercises missing, wrong, cross-session and malformed tokens on every operation; query, cookie and JSON tokens do not authorize requests. Failed authorization does not call render/enhance or remove sessions. OpenAPI declares bearer security for every session route. All 40 image API tests passed. The full 94-test backend suite passed at D09; no runtime code changed for D10.
+- No dependencies, database or frontend behavior changed. D10 is complete; D11 remains pending.
+
+## Backend D09 verification — 14 November 2026
+
+- Added an aware UTC `uploaded_at` timestamp to each private image session. Its returned `expires_at` is calculated once from that same timestamp plus the default 3,600-second TTL. It does not extend when the image is read, previewed, enhanced or exported. The API response still returns only the existing expiry field; no frontend contract changed.
+- One ASGI test verifies upload-time bounds, exact 60-minute response/storage equality, fixed expiry through all four image operations, access at one microsecond before expiry, and a 410 response at the exact expiry boundary. All 94 backend tests passed with `uv run --locked --offline --cache-dir .uv-cache python -m unittest discover -s tests -q`.
+- No dependencies, database or frontend behavior changed. D09 is complete; D10 remains pending.
+
+## Backend D08 verification — 14 November 2026
+
+- Confirmed there is no public/static image-file mount. Repository storage paths are limited to backend/.runtime; extended config checks explicitly reject frontend/public and frontend/dist. Original/normalized files stay private, while preview/export JPEG bytes are generated for authorized requests without persisting public derivatives.
+- Added a small permission helper for each newly allocated run directory. POSIX uses mode 0700. On the current Python 3.11.9 Windows runtime, bundled whoami/icacls commands identify the service SID, remove inherited access and grant that account inheritable full control. Commands use argument arrays, bounded timeouts and suppressed permission-tool output. Existing configured roots/unrelated files are not modified. Permission failure removes the empty new run and aborts startup before pool creation.
+- Three new tests verify real Windows owner-only ACLs on a run directory and inherited child directory/file access, injected permission-failure cleanup, and public/static/runtime/raw file URL rejection with or without a token. Authorized original-preview/preview/export return JPEGs and leave only original/normalized files on disk. Existing cross-session/invalid-token checks remain passing.
+- All 93 backend tests passed with `uv run --locked --offline --cache-dir .uv-cache python -m unittest discover -s tests -q`. Windows ACL inspection passed; POSIX mode assertions are included but require execution on a POSIX host. No dependencies, database or frontend behavior changed. D08 is complete; D09 remains pending.
+
+## Backend D07 verification — 14 November 2026
+
+- Audited existing session generation: image IDs use `secrets.token_hex(16)`, tokens use a separate `secrets.token_urlsafe(32)` call, and only SHA-256 token hashes enter session records. File paths combine the generated ID with fixed internal filenames; submitted names are display metadata. No runtime code, dependencies or frontend behavior changed.
+- Two added ASGI tests cover identical repeated uploads receiving separate ID/token values, expected encodings and token hash storage, plus traversal-style, POSIX absolute, Windows drive, UNC, colon and repeated filenames. Tests verify storage stays directly under the private root in generated ID directories, only fixed `original`/`normalized.png` files exist, and earlier upload bytes remain intact. Existing authentication tests also reject an image ID or another session's token as authorization. Randomness comes from the audited secrets calls; uniqueness samples are regression checks, not entropy measurements.
+- All 90 backend tests passed with `uv run --locked --offline --cache-dir .uv-cache python -m unittest discover -s tests -q`. No live database/browser rerun was needed. D07 is complete; D08 remains pending.
+
+## Backend D06 verification — 14 November 2026
+
+- Confirmed existing storage saves uploaded bytes directly as `original`, separately from `normalized.png`; preview, enhancement and export read the normalized working file. No runtime code, dependencies or frontend behavior changed.
+- Added one ASGI regression test covering JPEG/PNG/WebP fixtures containing EXIF orientation, a description and an sRGB ICC profile. It checks exact original-byte preservation, retained original dimensions/metadata, physically separate original/normalized files, and byte-for-byte stability of both files after original-preview, edited preview, enhancement, export and a repeated original-preview. The edited preview differs while the repeated original-preview is identical.
+- All 88 backend tests passed with `uv run --locked --offline --cache-dir .uv-cache python -m unittest discover -s tests -q`. No live database/browser rerun was needed. D06 is complete; D07 remains pending.
+
+## Backend D05 verification — 14 November 2026
+
+- Confirmed upload normalization already applies EXIF orientation before saving the working PNG and creating metadata from its resulting dimensions. No runtime code, dependencies or frontend behavior changed.
+- Strengthened the existing orientation smoke check with asymmetric quadrant fixtures and independently specified expected corner orders. The ASGI test covers JPEG/PNG/WebP with all eight EXIF orientations and no orientation tag (27 cases), including mirrored/transposed cases. It verifies reported width/height, exact normalized/preview/export dimensions, corner colours with JPEG tolerance, and absence of the orientation tag from working/derived images. Orientations 5–8 swap width and height. Existing transparency coverage was retained as a separate test.
+- All 87 backend tests passed with `uv run --locked --offline --cache-dir .uv-cache python -m unittest discover -s tests -q`. No live database/browser rerun was needed. D05 is complete; D06 remains pending.
+
+## Backend D04 verification — 14 November 2026
+
+- A direct normalization probe found malformed EXIF offsets being accepted with UserWarnings and truncated PNG/WebP EXIF producing an unhandled binary parsing error. Upload normalization now treats Pillow UserWarnings as errors within its existing warnings context and maps binary parsing errors to generic 422 invalid_image responses. Existing bomb warning/error handling still returns 413. No dependency or frontend behavior changes were needed.
+- Four added ASGI tests cover both decompression-bomb paths before pixel loading using reduced test thresholds; warning-filter restoration; malformed EXIF offsets across JPEG/PNG/WebP and truncated EXIF headers in PNG/WebP; invalid ICC and valid sRGB profiles across all three formats; compressed PNG text/ICC exceeding the native per-chunk expansion limit; and aggregate text overflow with a reduced test-only limit. Existing valid EXIF orientation tests still pass. Rejected fixtures leave no sessions/files; tested warnings do not escape and a subsequent valid upload succeeds.
+- All 86 backend tests passed with `uv run --locked --offline --cache-dir .uv-cache python -m unittest discover -s tests -q`. Production Pillow image/text thresholds remain enabled and unchanged; application byte/pixel/side limits still apply. No live database/browser rerun was needed. D04 is complete; D05 remains pending.
+
+## Backend D03 verification — 14 November 2026
+
+- Existing MAX_UPLOAD_BYTES (10,000,000), MAX_IMAGE_PIXELS (24,000,000) and MAX_IMAGE_SIDE (10,000) checks remain configurable. File bytes are bounded before decoding; dimensions are checked before full pixel loading. Added `app/uploads.py`, a small upload-only request receive guard used before multipart parsing. It rejects declared oversize immediately and counts streamed bytes independently of Content-Length, limiting multipart input to the file limit plus 65,536 bytes of overhead.
+- Three new ASGI tests verify exact/default and reduced configured limits, including a real 10MB file, 24MP image and 10,000-pixel side. One-over bytes/pixels/width/height return 413 before decoding. Declared oversize is rejected without a body read; absent/understated lengths cannot bypass streaming enforcement. Partial multipart spool files close after rejection, no image sessions/files remain, and a subsequent valid upload succeeds.
+- All 82 backend tests passed with `uv run --locked --offline --cache-dir .uv-cache python -m unittest discover -s tests -q`. No dependency or frontend behavior changes were needed. The ASGI server still receives transport chunks before the application can count them; hosting request limits, request rates, execution time and aggregate disk budget remain phase H. D03 is complete; D04 remains pending.
+
+## Backend D02 verification — 14 November 2026
+
+- Audited unsupported, corrupt, animated and multi-frame rejection. The existing normalizer already satisfies these checks; no runtime code, dependencies or frontend behavior changed.
+- Two added ASGI tests cover empty/non-image data, truncated JPEG/PNG/WebP headers, incomplete JPEG/WebP pixel payloads, PNG checksum corruption, animated GIFs and multipage TIFFs. Unsupported containers are tested with their real extensions and renamed as PNG. Together with D01's format matrix and animated PNG/WebP tests, these verify safe 415/422 responses with no retained sessions/files. A valid upload succeeds after corrupt-upload rejections.
+- All 79 backend tests passed with `uv run --locked --offline --cache-dir .uv-cache python -m unittest discover -s tests -q`. No live database/browser rerun was needed. D02 is complete; D03 and Studio API integration remain pending.
+
+## Backend D01 verification — 14 November 2026
+
+- Audited the existing upload normalizer: extension allowlist, detected-format match, single-frame requirement, container verification and full pixel decoding already run on the server before session creation. No runtime code, dependencies or frontend behavior changed.
+- Four new ASGI tests upload real generated files directly with generic multipart MIME. They cover JPG/JPEG, PNG and WebP, uppercase extensions, usable previews, mismatched extensions, GIF/BMP/TIFF disguised as allowed formats, missing/unsupported extensions, a truncated JPEG that passes container verification, and animated two-frame PNG/WebP files. Invalid inputs return the expected 415/422 envelopes and leave no sessions/files.
+- All 77 backend tests passed with `uv run --locked --offline --cache-dir .uv-cache python -m unittest discover -s tests -q`. No database/browser rerun was needed. D01 is complete; D02 and Studio API integration remain pending.
+
+## Backend/frontend C12 verification — 14 November 2026
+
+- Added synthetic-setting OpenAPI export of the actual application, a limited TypeScript generator and frontend generate/check scripts. Generated models and all eight endpoint contracts include bodies/media types/statuses/headers; the existing frontend Adjustments type now aliases its generated counterpart. Integer bounds/security metadata remain in the full-schema fingerprint; TypeScript numeric types do not replace server validation.
+- `npm run contracts:generate`, `npm run contracts:check`, all nine frontend unit tests and the TypeScript/Vite production build passed. No UI behavior was changed. The check normalizes source line endings, returns nonzero on missing/stale output and does not rewrite it.
+- Three new backend tests cover resource-free actual schema export, file/JPEG/optional/empty-body mappings, constraint drift, non-mutating stale-file rejection and unsupported schema failures. All 73 backend tests passed. No browser or live database rerun was needed.
+- The latest standard generator available through npm required TypeScript 5 and was incompatible with this repository's TypeScript 7. Its installation failed without retained manifest/lockfile dependency changes; the final implementation uses only existing tools. Generation uses synthetic settings, bypasses local dotenv and never opens application resources. Phase C is complete; D01 and full Studio integration remain pending.
+
+## Backend C11 verification — 14 November 2026
+
+- Added conditional CORS wrapping using the already-validated ALLOWED_ORIGINS setting. Explicit origins permit GET/POST/DELETE and Authorization/Content-Type, exposing X-Image-Revision and Content-Disposition. Cookie credentials remain disabled; empty origins return the existing application unchanged. No dependencies, local `.env`, database or frontend application changes were needed.
+- Exported `application` outside FastAPI's server-error layer so even handled unexpected 500s carry allowed-origin CORS headers. The existing safe Uvicorn launcher now uses this export; the inner `app` remains available for OpenAPI tooling. An outer private cache guard keeps image preflight responses no-store as well.
+- Three new tests verify actual preview/export/auth-error CORS headers, exact origin/Vary behavior, allowed GET/POST/DELETE preflights with bearer/JSON headers, rejected origins/methods/headers, no access grant to unlisted origins, disabled mode and generic 500 header coverage. All 70 backend tests passed.
+- An actual exported-application ASGI check used process-only origin configuration and verified preflight plus unavailable-storage response headers. No credentials file changed. After adding a launcher-target assertion, all five logging/launcher tests also passed. Full browser/Studio integration remains phase G; the CORS checks here are ASGI-level.
+
+## Backend C10 verification — 14 November 2026
+
+- Existing handlers already emit revision/download headers and document them in OpenAPI. No application code, dependencies, database or frontend application changes were needed.
+- Added a preview-header test for revision zero, a large integer and deliberately out-of-order requests across two sessions. Successful responses echo each submitted revision exactly, return JPEG and omit attachment disposition. Negative/float/string/boolean/null revisions return 422; wrong authorization returns 401. Those failures omit X-Image-Revision.
+- Added export-header tests checking JPEG Content-Type, byte-matching Content-Length and bounded quoted ASCII attachment filenames. Injected filename metadata covers paths, punctuation/quotes, Unicode-only names, CR/LF and long stems; outputs contain only the safe JPEG filename pattern and no injected headers. Checked normal filename preservation and fallback behavior. Exports do not accidentally include preview revision headers.
+- All 67 backend tests passed with `uv run --locked --offline --cache-dir .uv-cache python -m unittest discover -s tests -q`, including OpenAPI revision/disposition schema checks. Tests use generated images/private temporary sessions; no live database/browser rerun was needed. Cross-origin exposure remains C11 and Studio integration remains phase G.
+
+## Backend C09 verification — 14 November 2026
+
+- Audited existing private response headers. Successes/domain errors already used no-store, but a direct ASGI probe confirmed the framework's trailing-slash 307 redirect omitted it. Added `backend/app/middleware.py` with a small pure-ASGI header guard scoped to `/api/v1/images` and descendants, registered on the application. No dependencies, processing logic, database or frontend application changes were needed.
+- Updated the image fixture to use the production error/cache handlers and added a routing-policy test: redirects, unknown paths and wrong methods retain no-store; a private response attempting public/max-age caching is overridden. All documented image responses also declare the no-store policy. Existing image tests assert the header for every tested success/failure, including 201/204, JPEG/JSON, validation/auth/capacity/expiry/server/storage errors.
+- All 65 backend tests passed with `uv run --locked --offline --cache-dir .uv-cache python -m unittest discover -s tests -q`. A separate actual-application ASGI check confirmed private redirect/error no-store and unchanged `/api/docs` caching headers. No live database rerun or browser cache simulation was needed.
+
+## Backend C08 verification — 14 November 2026
+
+- Audited 201/204/401/404/410/413/415/422/429/500 and service-unavailable behavior. Existing processing/status logic already met the requirement. Added shared OpenAPI 500 metadata at the API-router level so health/presets document the existing global server-error handler; image-specific descriptions remain intact. No dependencies, database or frontend application changes were needed.
+- Three new ASGI tests cover lost in-memory session state after restart (404), wrong-token versus known-expired responses (401/410), empty-body deletion (204), actual 32-session capacity (429) and recovery after deletion, missing storage (503), and image dimension/format/decode failures. Injected a normalized-file write error after original bytes were written: the endpoint returned generic 500, removed partial files, retained no session and accepted a subsequent upload.
+- Schema checks verify expected upload/session error statuses and 500/503 declarations on all eight operations. Existing tests cover upload success, byte-size rejection, malformed JSON/fields, busy processing, bearer challenges, database failures and generic unexpected exceptions.
+- All 64 backend tests passed with `uv run --locked --offline --cache-dir .uv-cache python -m unittest discover -s tests -q`. Checks use generated images and isolated temporary resources; no live database or frontend rerun was needed. Scheduled expiry cleanup and the remaining checklist work remain pending.
+
+## Backend C07 verification — 14 November 2026
+
+- Added `backend/app/errors.py` with one typed error-response factory and safe handlers for request validation, HTTP exceptions and unexpected failures. Registered the handlers on the actual application; existing image route handling reuses them. Existing image/domain/database codes remain intact, while application routing and validation failures now share the same envelope. No dependencies, database or frontend application changes were needed.
+- All error responses use no-store. HTTP handlers preserve applicable Allow/WWW-Authenticate/Retry-After headers and suppress arbitrary exception headers/details. Validation errors never serialize submitted inputs or error bodies. Unexpected server/response-validation failures return generic 500 and log only the fixed `request_failed` event.
+- Added three ASGI tests covering invalid query/body fields and malformed JSON, routing 404/405, protocol headers, explicit HTTP errors, unexpected exceptions and invalid response data. They verify exact envelope keys and absence of synthetic private inputs/paths. The server-error test accounts for Starlette re-raising an exception after its handled 500 response is sent.
+- All 61 backend tests passed with `uv run --locked --offline --cache-dir .uv-cache python -m unittest discover -s tests -q`, including existing image authorization/processing and database-error tests. Checks use generated images and simulated resources; no live database rerun was needed. C08 and frontend integration remain pending.
+
+## Backend/frontend C06 verification — 14 November 2026
+
+- Confirmed the three binary image endpoints already return direct JPEG bodies. Added an ASGI regression test checking Content-Type/Length, JPEG start/end markers, actual decoding and absence of redirect headers. All 58 backend tests passed; no backend runtime code or database changes were needed.
+- Added only browser response-consumption helpers in `src/lib/imageResponse.ts`: JPEG response-to-object-URL with explicit display disposal, and blob-backed download initiation with anchor cleanup/deferred URL release. These consume an existing authorized Response; Studio/API fetch wiring remains phase G. No dependencies were added.
+- All nine frontend unit tests passed, including four new checks for binary preservation, rejecting errors/non-JPEG responses before allocation, successful download cleanup and failed-initiation cleanup. `npm run build` passed after removing two pre-existing unused Home icon imports (`ArrowDown`, `ArrowRight`) reported by TypeScript. No Home behavior changed.
+- `npx playwright test tests/e2e/image-response.spec.ts` passed in Chrome. The test imports the actual helper through Vite, decodes a generated JPEG object URL in an image element, verifies revocation, initiates a real browser download and reads complete JPEG bytes with the expected filename. It does not claim Studio/backend integration or cross-browser download verification.
+
+## Backend C05 verification — 14 November 2026
+
+- Audited the existing HTTP bearer dependency on all five image-specific operations and the per-session SHA-256 hash/constant-time comparison. No application code, dependencies, database or frontend application changes were needed.
+- Added authorization regression coverage across original preview, edited preview, enhancement, export and deletion using valid request bodies. Missing/wrong tokens, another session's token, the image ID as a token, Basic credentials, empty/malformed Bearer headers and extra credential text all returned generic 401 with a Bearer challenge. Rendering/enhancement were never invoked; both sessions and their files remained present. The case-insensitive HTTP scheme also accepted a valid token.
+- Supplying tokens through query parameters/cookies/JSON without the required header returned 401 and did not echo credentials. Checked stored session representations and original/normalized files contained no plaintext token. OpenAPI requires HTTPBearer for every image-specific operation and declares no token URL parameters; upload remains public. Existing valid-token workflow tests cover all protected operations.
+- All 57 backend tests passed with `uv run --locked --offline --cache-dir .uv-cache python -m unittest discover -s tests -q`. Tests use generated images and isolated temporary sessions, not user photos or a live database. Browser integration remains pending.
+
+## Backend C04 verification — 14 November 2026
+
+- Existing upload `UploadFile` binding requires multipart `file`; preview/export use JSON Pydantic bodies. No application code, dependencies, database or frontend application changes were needed.
+- Added transport regression tests: JSON/raw uploads, wrong multipart part name and a text part named `file` return 422 before normalization; missing multipart boundary returns generic 400. Preview/export reject missing/wrong Content-Type, form/multipart/text bodies and malformed JSON with generic 422 before rendering, then accept valid JSON with a charset parameter.
+- OpenAPI advertises only multipart/form-data for upload, with required `file`, and application/json for preview/export. The initial file-schema test assumed `format: binary`; corrected it to match the installed FastAPI's generated string plus `contentMediaType: application/octet-stream` representation. Runtime behavior required no fix.
+- All 55 backend tests passed with `uv run --locked --offline --cache-dir .uv-cache python -m unittest discover -s tests -q`. Tests use generated images/private temporary directories and no live database. C05 onward remains pending.
+
+## Backend C03 verification — 14 November 2026
+
+- Confirmed the existing `Adjustments` model already requires all six strict integer fields, forbids extras and uses the frontend control bounds. No application code, dependencies, database or frontend application changes were needed.
+- Added two focused model tests covering Python/JSON input, preservation of all inclusive boundaries, rejection of fractional/whole-valued floats, numeric strings, booleans, nulls, missing/extra fields and out-of-range values. Generated JSON Schema requires exactly the six fields, declares integer minimum/maximum values and disallows extras.
+- Added an ASGI regression test submitting invalid adjustment objects to both preview and export with a valid session token. Every case returned generic 422 and the renderer was never called. Tests use generated images/private temporary directories and no live database.
+- All 53 backend tests passed with `uv run --locked --offline --cache-dir .uv-cache python -m unittest discover -s tests -q`. C04 onward remains pending.
+
+## Backend C02 verification — 14 November 2026
+
+- Audited all eight existing endpoints and reused their request/success models. Added typed `ErrorDetail`/`ErrorResponse` for the image error path, constrained upload metadata to supported detected formats/positive dimensions/aware expiry, and described revision/token metadata. No dependencies, database schema/data, frontend application code or processing formulas changed.
+- Documented implemented image errors at router/operation level, replacing the inaccurate automatic 422 validation schema with the actual generic envelope. Added binary JPEG schemas, no-body 204 deletion, cache/revision/download/authentication headers, operation summaries and bearer-token guidance. Existing health/preset contracts remain intact.
+- All 50 backend tests passed with `uv run --locked --offline --cache-dir .uv-cache python -m unittest discover -s tests -q`. Contract coverage validates actual upload/enhancement/error JSON with the models, checks multipart and JSON request references, verifies JPEG media schemas contain no JSON body, confirms deletion has no content schema, and checks headers, format/dimension/expiry metadata and typed image 422 responses.
+- No live database rerun was needed for contract/documentation changes; image workflow tests use real generated images and temporary storage. Broader common HTTP error handling, exhaustive status/security tests, frontend contract generation and browser integration remain scheduled work.
+
+## Backend C01 verification — 14 November 2026
+
+- Added the six remaining image endpoints, bringing the versioned API to eight operations. Added only their supporting image contracts, private session store and shared normalization/render/enhancement service, using existing dependencies. Lifespan owns the session store; shutdown clears its reference and removes private run files. Frontend application code and database schema were unchanged.
+- All 49 backend tests passed. Six new ASGI tests exercise multipart upload, metadata, original/edited JPEG previews, neutral equivalence, revisions, repeatable enhancement, full-resolution export, deletion, bearer protection, invalid adjustments, expiry, immediate busy rejection, corrupt/unsupported/oversized input, all eight OpenAPI operations, JPEG/PNG/WebP orientation, transparent-white compositing, combined grayscale adjustments, and generic processing-error recovery. Export-quality handling and the current Pillow pixel API were then adjusted; all six image tests passed again.
+- A separate actual-application ASGI smoke check exercised health/presets against development Neon and all six image operations with a generated PNG. It used a test-only 32-pixel preview limit in memory, verified full-resolution export, removed the image session, then confirmed pool/run-directory/session-store cleanup. No browser integration or production deployment was tested.
+- This initial endpoint implementation does not complete all later C–F items: full OpenAPI error contracts, cross-origin integration, scheduled expiry/crash-leftover cleanup, comprehensive malformed/profile/bomb tests, ingress/disk limits and image-quality verification remain scheduled work. The upload byte check occurs after framework multipart spooling and before image decoding. No frontend integration claims are made.
+
+## Backend B11 verification — 14 November 2026
+
+- Used the existing isolated Neon `development` branch (`br-small-frost-b3yx6xrk`), verifying the exact direct endpoint and database before execution. No branch, database or other infrastructure was created; no main/production data was changed. No application code, dependencies or new test harness were needed.
+- Ran the real migration runner twice; both reported zero pending migrations. Ran the real seed command function twice; the table retained exactly the five canonical definitions, and the ledger retained the two expected filenames/checksums. Initial creation of these migrations was verified in B05–B06; this check exercised the existing migrated development database.
+- Within a force-rollback transaction, changed a preset and verified seeding repaired its fields. An injected SQL-level bound violation raised `CheckViolation`; its savepoint rolled back and preserved the pre-attempt state. The enclosing probe transaction rolled back completely.
+- Copied the actual migration files into a temporary directory under ignored `.runtime`, then added a data-update migration followed by intentional division by zero. The real migration runner raised `DivisionByZero` and rolled back both the earlier update and new history entries. Modifying an applied migration in that temporary directory was rejected by checksum validation. All fixture files were removed.
+- Final retrieval through the real application pool returned all five canonical presets in UI order. All 43 existing backend tests passed with `uv run --locked --offline --cache-dir .uv-cache python -m unittest discover -s tests -q`. Phase B is verified; frontend integration and subsequent checklist phases remain pending.
+
+## Backend B10 verification — 14 November 2026
+
+- Reviewed existing Psycopg 3.3.9/pool 3.3.3 behavior, transaction boundaries, timeouts, health/preset errors and safe log formatting. Existing implementation covers this step; no application code, tests, dependencies, migrations or frontend application files were added or changed for B10. Updated documentation and checklist only.
+- All 43 existing backend tests passed with `uv run --locked --offline --cache-dir .uv-cache python -m unittest discover -s tests -q`, including pool/query failures, redacted responses, later-request recovery, rollback/release and resource cleanup.
+- A separate actual-application ASGI check used the development pooled application role and a test-only one-connection pool. Injected synthetic `OperationalError` failures into `Connection.connect` in the real pool workers: health and presets returned generic no-store 503s. After removing the injection, both returned 200 on the same application/pool, using a real TLS connection to Neon.
+- Closed only this test process's returned idle client connection, separately for each endpoint. Each stale client caused a generic 503, was discarded by the pool, and was replaced by a distinct TLS connection; subsequent requests succeeded. No Neon compute restart, backend-session termination or infrastructure change was used.
+- Holding the only pool connection caused health/presets acquisition timeouts and generic 503s; both recovered after release. A real `SELECT pg_sleep(3)` inside the shared one-second statement scope raised `QueryCanceled` before three seconds, and subsequent health/preset requests succeeded. Test-only request/statement limits were shortened in memory; connection-attempt limits and local `.env` were preserved.
+- Captured application and driver logs contained fixed event categories and excluded the actual connection URL/password, injected private details and tracebacks. The pool remained open through the scenarios, then closed at shutdown and removed its owned run directory. No persistent database data changed. This validates controlled client failures and recovery, not a real Neon-wide outage or every possible network stall.
+
+## Backend B09 verification — 14 November 2026
+
+- Added `GET /api/v1/presets` and a separate database reader. The reader selects nine required fields for the five stable built-in IDs, orders by their studio sequence in SQL, borrows from the existing application pool with its transaction timeout, and validates every definition with `Preset`. No seed values are used as runtime fallback. The endpoint exposes a typed JSON array and no write methods.
+- Shared the existing service-unavailable envelope between readiness and presets. Pool/query failures and incomplete/invalid definitions return a generic 503 with `Cache-Control: no-store`; success uses the same cache policy. A fixed `presets_unavailable` event excludes exception details. No dependencies, migrations or frontend application code changed.
+- All 43 backend tests passed with `uv run --locked --offline --cache-dir .uv-cache python -m unittest discover -s tests -q`. Six new tests cover complete database-derived values/order, pool failures and subsequent recovery, query cancellation and connection release, missing/invalid definitions, rejected POST/PUT/PATCH/DELETE methods, and typed OpenAPI 200/503 responses. Existing health/logging tests passed after the shared-schema move.
+- A separate live check ran the actual application lifespan and ASGI endpoint against the development pooled application role over TLS. Two requests returned 200, no-store headers and the exact five canonical definitions in UI order. The role still lacked INSERT/UPDATE/DELETE privileges. OpenAPI contained both outcomes; shutdown closed the pool and removed the run directory. This was an ASGI/backend check, not browser or frontend integration. No database data was changed.
+
+## Backend B08 verification — 14 November 2026
+
+- Added `backend/app/schemas/presets.py` with a strict, frozen `Preset` model containing all nine required fields, six integer ranges matching PostgreSQL, and forbidden extra fields. The seed path validates all rows before opening its write cursor and catches validation/tuple-shape failures through the generic CLI error path. No dependencies, migrations or frontend application code changed.
+- All 37 backend tests passed with `uv run --locked --offline --cache-dir .uv-cache python -m unittest discover -s tests -q`. New coverage checks all seed values and JSON round trips, inclusive bounds, out-of-range values, float/string/boolean/null rejection, missing/extra fields, strict text fields, and invalid/incomplete/oversized final seed rows rejected before any upsert. CLI tests also verify private Pydantic error details are excluded. After simplifying the JSON test construction, the three preset schema tests were rerun and passed.
+- The actual validated seed CLI ran twice successfully against the existing development branch. A live pooled application-role query over TLS returned exactly five rows; each passed the Pydantic model and preserved every canonical value. Connections closed after verification. The main/default branch was not seeded. The public retrieval endpoint and its response integration remain B09.
+
+## Backend B07 verification — 14 November 2026
+
+- Added `backend/app/db/seed.py` with the five version-controlled preset definitions and an explicit `python -m app.db.seed` command. Parameterized upserts update every definition field by `preset_id` in one transaction using the direct owner connection and configured timeouts. Missing/pooled direct URLs fail before opening a connection; no fallback uses the application role. CLI failures return 1 without raw private errors. No dependencies, migrations or frontend application code changed.
+- Imported the actual frontend TypeScript definitions with Node and compared all IDs, names, descriptions and six adjustment values against the backend seed tuples; they matched exactly. Ran the actual seed CLI twice on the development branch; both succeeded and the database contained exactly five complete unique definitions.
+- Separate live transaction checks verified all eight non-key fields are repaired by an upsert, an unrelated test row is preserved, and an invalid final seed row rolls back earlier updates in the batch. These temporary changes were rolled back; the committed database retains exactly the five canonical presets. The main/default branch was not seeded.
+- The pooled application role read all five exact definitions over TLS and still lacked INSERT/UPDATE/DELETE privileges. All 33 backend tests passed with `uv run --locked --offline --cache-dir .uv-cache python -m unittest discover -s tests -q`, including two new seed command tests covering URL safeguards and redacted/nonzero database failures. Pydantic preset validation and the retrieval API remain B08–B09.
+
+## Backend B06 verification — 14 November 2026
+
+- Added `backend/migrations/002_presets.sql`: nine columns matching the checklist, a text primary key, required text/integer values, and six numeric-range constraints matching `frontend/src/lib/editor.ts`. Granted only SELECT on this table to `lumalab_app`. No runtime application logic, frontend code or dependencies changed.
+- Applied migration 002 through `python -m app.db.migrate` on the existing development branch's direct owner connection. The next invocation reported zero migrations, and both ledger checksums matched the local files. The default/main branch was not migrated.
+- Live PostgreSQL verification confirmed exact column order/types and not-null attributes. Within a rolled-back transaction, all 12 lower/upper boundary values were accepted; all 12 immediately out-of-range values raised the corresponding check violation. Nulls in each of the nine columns were rejected, and a duplicate ID raised the primary-key violation. No test rows remain; the table is empty.
+- The actual pooled application connection over TLS could SELECT from presets. Privilege checks confirmed INSERT, UPDATE, DELETE and TRUNCATE are false. All 31 existing backend tests passed with `uv run --locked --offline --cache-dir .uv-cache python -m unittest discover -s tests -q`. Constraint checks were separate live verification, not new mocked unit tests. Seeding remains B07.
+
+## Backend B05 verification — 14 November 2026
+
+- Added `backend/app/db/migrate.py`, migration `001_migration_history.sql`, and migration-authoring instructions. Uses the existing Psycopg dependency, requires the direct URL, and never runs automatically at API startup. No frontend application code or dependency files changed.
+- The runner validates ordered filenames and normalized SHA-256 checksums, checks the applied history is a matching prefix, and applies all pending SQL/history entries in one transaction under an advisory lock. CLI failures return 1 without raw database/configuration errors or tracebacks.
+- All 31 backend tests passed with `uv run --locked --offline --cache-dir .uv-cache python -m unittest discover -s tests -q`. Four new tests cover stable checksums across line endings, filename/order validation, missing/pooled migration URLs, and redacted CLI failures. Existing Windows asynchronous checks ran outside the sandbox.
+- Live checks used the existing isolated development branch's direct owner connection over TLS. The actual command initialized the history table and a repeat run reported zero migrations. The ledger matched the SQL checksum. Temporary test migrations created a probe table followed by intentional division by zero; the batch rolled back both the table and its history entries. An edited applied file and a simultaneous advisory lock holder were rejected. A final run was a no-op. Temporary fixture files were removed. No presets table or seed data was created; the default/main branch was not migrated.
+- The frontend/backend folder move had left backend secrets and bytecode tracked. Added backend-local ignore rules and removed `.env` plus generated bytecode from the Git index, preserving their local copies. This does not remove credentials from earlier commits; rotation is still required. No history rewrite or credential rotation was performed.
+- Verified the local credential file is preserved, ignored and absent from the index. A scan found neither database URL nor password in tracked/nonignored working files. Staged and unstaged whitespace checks passed.
+
 ## Backend B04 verification — 13 November 2026
 
 - Added the direct development migration-owner URL to ignored `backend/.env`, preserving the pooled application URL. Updated `.env.example` to use a distinct migration-owner placeholder. No application code, dependencies or frontend files changed.

@@ -68,6 +68,7 @@ from app.logging import LOG_CONFIG
 sys.argv = ['app', '--reload']
 with patch('uvicorn.run') as run:
     runpy.run_module('app', run_name='__main__')
+    assert run.call_args.args[0] == 'app.main:application'
     assert run.call_args.kwargs['reload'] is True
     assert run.call_args.kwargs['access_log'] is False
     assert run.call_args.kwargs['log_config'] == LOG_CONFIG
@@ -86,7 +87,7 @@ from app.logging import configure_logging
 from app.lifespan import lifespan
 configure_logging()
 app = FastAPI()
-app.state.settings = SimpleNamespace(temp_image_dir='C:/private/photo.jpg')
+app.state.settings = SimpleNamespace(temp_image_dir='C:/private/photo.jpg', image_ttl_seconds=3600, cleanup_interval_seconds=300)
 async def check():
     with patch('app.lifespan.temporary_storage'), patch('app.lifespan.database_pool'):
         async with lifespan(app):

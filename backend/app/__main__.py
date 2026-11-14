@@ -12,7 +12,7 @@ if __name__ == "__main__":
     configure_logging()
     try:
         uvicorn.run(
-            "app.main:app", host="127.0.0.1", port=8000, workers=1,
+            "app.main:application", host="127.0.0.1", port=8000, workers=1,
             reload=arguments.reload, log_config=LOG_CONFIG, log_level="warning", access_log=False,
         )
     except Exception:

@@ -68,7 +68,8 @@ class SettingsTests(unittest.TestCase):
         for field, value in invalid.items():
             with self.subTest(field=field), self.assertRaises(ValidationError):
                 Settings(database_url=DATABASE_URL, **{field: value})
-        for path in (".", "..", "../public/images", "../dist", "../src", ".runtime/../../public"):
+        for path in (".", "..", "../public/images", "../dist", "../src", ".runtime/../../public",
+                     "../frontend/public/images", "../frontend/dist"):
             with self.subTest(path=path), self.assertRaises(ValidationError):
                 Settings(database_url=DATABASE_URL, temp_image_dir=path)
         settings = Settings(database_url=DATABASE_URL, temp_image_dir=".runtime/custom")

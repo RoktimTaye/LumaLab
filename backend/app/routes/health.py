@@ -4,7 +4,8 @@ from fastapi import APIRouter, Request, Response
 from fastapi.responses import JSONResponse
 
 from app.db.pool import database_available
-from app.schemas.health import HealthResponse, UnavailableError, UnavailableResponse
+from app.schemas.errors import UnavailableError, UnavailableResponse
+from app.schemas.health import HealthResponse
 from app.storage.runtime import storage_available
 
 router = APIRouter()

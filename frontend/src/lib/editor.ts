@@ -1,4 +1,6 @@
-export type Adjustments = { brightness: number; contrast: number; saturation: number; warmth: number; sharpness: number; vignette: number }
+import type { components } from './api.generated'
+
+export type Adjustments = components['schemas']['Adjustments']
 export type AdjustmentKey = keyof Adjustments
 export type Preset = { name: string; description: string; values: Adjustments }
 export const NEUTRAL: Adjustments = { brightness: 100, contrast: 100, saturation: 100, warmth: 0, sharpness: 0, vignette: 0 }
