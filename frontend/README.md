@@ -1,8 +1,8 @@
 # LumaLab frontend
 
-A responsive photography website and editing studio built from the LumaLab product PRD and the supplied infrastructure design document. The frontend preview is implemented. The backend now exposes all eight MVP endpoints, including a basic private image editing workflow and live Neon presets. Detailed backend hardening and frontend API integration remain pending.
+A responsive photography website and editing studio built from the LumaLab product PRD and the supplied infrastructure design document. The Studio now connects image upload, presets, previews, enhancement, export and cleanup to the backend. Remaining frontend integration and backend hardening are tracked in the checklist.
 
-## Backend development (A01–A08, B01–B11, C01–C12, D01–D13)
+## Backend development (A01–A08, B01–B11, C01–C12, D01–D16, E01–E14, F01–F06, G01–G19, H01–H09)
 
 Neon setup: [LumaLab project](https://console.neon.tech/app/projects/shy-field-11180671), AWS Singapore, PostgreSQL 18. Use database `lumalab` on the `development` branch (`br-small-frost-b3yx6xrk`) for development. `lumalab_owner` owns the database; `lumalab_app` is the limited application role on that branch. The ignored local `backend/.env` is configured with its pooled connection URL and `sslmode=require`. A local Psycopg connection confirmed TLS and the application identity on 13 November 2026. The migration ledger, constrained presets table, seeded definitions and read-only retrieval endpoint were verified on 14 November. The application role has SELECT permission on presets.
 
@@ -20,11 +20,13 @@ uv run --locked python -m app
 
 The server listens on `http://127.0.0.1:8000`. Open `http://127.0.0.1:8000/api/docs` for Swagger UI or `/api/openapi.json` for the schema. `GET /api/v1/health` checks readiness; `/` returns 404.
 
+During development, start the frontend with `npm run dev` (default `http://127.0.0.1:5173`). Vite proxies `/api` to the backend at `http://127.0.0.1:8000`; the frontend client uses relative API URLs, so no CORS setting is needed for this setup. Keep both local servers running while using the Studio.
+
 OpenAPI describes the Pydantic JSON request/response models, required multipart `file`, image bearer security, implemented image error envelopes and response headers. JPEG responses are binary `image/jpeg`, and deletion's 204 has no body. Upload metadata constrains detected format to JPEG/PNG/WEBP, dimensions to positive oriented pixel counts, and expiry to a timezone-aware timestamp. Image 422 responses use `ErrorResponse`, matching the generic runtime envelope. Frontend contracts are generated and checked against this schema.
 
 Application errors now consistently use `{ "error": { "code": "...", "message": "..." } }`, including request-validation failures, malformed JSON, routing 404/405 and unexpected server errors. Validation returns generic `invalid_request`/422; unexpected errors return generic `internal_error`/500 outside image routes, whose specific processing codes are retained. Responses omit input values, validation traces and raw exception details, use no-store, and preserve applicable Allow/WWW-Authenticate/Retry-After headers.
 
-Frontend API contracts live in `src/lib/api.generated.ts`. From `frontend/`, run `npm run contracts:generate` after an intentional API change, review the generated diff, then run `npm run contracts:check` and `npm run build`. Use the check command in CI: it exits nonzero for missing/stale output and never rewrites it. Keep the generated file in version control. The commands require uv and the backend environment installed with `uv sync --locked`; no running server, database or `.env` is required. Schema export uses synthetic settings and does not enter the application lifespan.
+Frontend API contracts live in `src/lib/api.generated.ts`; the centralized typed client is `src/lib/api.ts`. Set `VITE_API_BASE_URL` in `frontend/.env.local` to the backend origin when using separate frontend/backend hosts; it defaults to same-origin relative requests. Client methods accept `AbortSignal`, keep bearer tokens in request headers, parse the backend error envelope, and return JSON or blobs according to the endpoint. From `frontend/`, run `npm run contracts:generate` after an intentional API change, review the generated diff, then run `npm run contracts:check` and `npm run build`. Use the check command in CI: it exits nonzero for missing/stale output and never rewrites it. Keep the generated file in version control. The commands require uv and the backend environment installed with `uv sync --locked`; no running server, database or `.env` is required. Schema export uses synthetic settings and does not enter the application lifespan.
 
 Generated `components` describe models and `paths` describe methods, path parameters, request/response media types, statuses and response headers. File/JPEG bodies map to `Blob`, timestamps to strings, and integers to TypeScript numbers; server validation still enforces strict integers and bounds. A schema fingerprint also catches constraints/security metadata drift. The generator intentionally supports only the current schema constructs and stops for unsupported additions. `src/lib/editor.ts` reuses the generated Adjustments type; full API/Studio wiring remains phase G. No generator dependency is required.
 
@@ -71,7 +73,7 @@ Upload normalization also rejects Pillow decompression-bomb warnings/errors with
 3. `POST /images/{image_id}/enhance` returns `{adjustments, message}` computed from the normalized original. Submit those values to preview to view the suggestion.
 4. `POST /images/{image_id}/export` accepts `{adjustments, format: "jpeg", quality: 92}` and returns a full-resolution JPEG attachment. `DELETE /images/{image_id}` returns 204 and removes the session files.
 
-Every adjustment object requires integer `brightness`, `contrast`, `saturation` (0–200), `warmth` (−50–50), `sharpness` and `vignette` (0–100). Bounds are inclusive. Preview/export reject floats (including `100.0`), numeric strings, booleans, nulls, missing fields and extra fields with 422 before rendering; values are never silently coerced or clamped. Image responses use no-store; expected failures use `{error: {code, message}}`. Missing/wrong tokens return 401, unavailable sessions 404, known expired sessions 410, oversized input 413, unsupported formats 415, invalid input 422, and busy/full capacity 429.
+Every adjustment object requires integer `brightness`, `contrast`, `saturation` (0–200), `warmth` (−50–50), `sharpness` and `vignette` (0–100). Bounds are inclusive. Brightness, contrast and saturation use Pillow factors `value / 100` (0.0–2.0). Warmth shifts red up and blue down by `0.4 × warmth` channel levels, clipping channels to 0–255; the shift is skipped at zero saturation. Sharpness uses an unsharp mask with radius `max(0.5, long_edge / 1600)`, percent `2 × sharpness` (0–200), and threshold 3. Vignette multiplies each pixel by `1 − 0.7 × vignette/100 × clamp((x²+y²)/2, 0, 1)`, where x and y span −1 to 1 across the image. At the maximum, its multiplier stays between 0.3 and 1. These bounded formulas use the same inputs for preview/export. Preview/export reject floats (including `100.0`), numeric strings, booleans, nulls, missing fields and extra fields with 422 before rendering; values are never silently coerced or clamped. Image responses use no-store; expected failures use `{error: {code, message}}`. Missing/wrong tokens return 401, unavailable sessions 404, known expired sessions 410, oversized input 413, unsupported formats 415, invalid input 422, and busy/full capacity 429.
 
 Authorization is image-specific: the token returned by one upload cannot authorize another image, and an image ID is not a token. Send the token only as `Authorization: Bearer <access_token>` for original preview, edited preview, enhancement, export and deletion. Query parameters, cookies and JSON token fields do not grant access; never build token-bearing URLs. Failed authorization uses a generic 401 with `WWW-Authenticate: Bearer` and does not echo the token. Session records retain only token hashes; uploaded image files contain no token. Upload itself, health and presets remain public. After a replacement upload succeeds, the client can DELETE the old session without affecting the new one; it can also DELETE the current session on explicit closure. Browser-close cleanup is best effort, with server expiry as the fallback.
 
@@ -95,7 +97,7 @@ Migration/seeding integration checks were verified on the isolated `development`
 
 For development with automatic reload, use `uv run --locked python -m app --reload`. This entry point applies the same restricted logging configuration to Uvicorn and its reload process. Run a single backend worker: the planned temporary image sessions will live in process memory.
 
-`backend/pyproject.toml` pins the direct dependencies and `backend/uv.lock` locks their transitive dependencies. Prereleases are disabled. The runtime stack includes FastAPI, Uvicorn, Pydantic, pydantic-settings, python-multipart, Pillow, NumPy, opencv-python-headless, and Psycopg 3 with binary and pool extras. Headless OpenCV provides server-side image processing without GUI dependencies; Psycopg's binary extra bundles the PostgreSQL client library, and its pool extra supports the planned bounded connections. Run the frontend separately using the commands below; it is not connected to this backend yet.
+`backend/pyproject.toml` pins the direct dependencies and `backend/uv.lock` locks their transitive dependencies. Prereleases are disabled. The runtime stack includes FastAPI, Uvicorn, Pydantic, pydantic-settings, python-multipart, Pillow, NumPy, opencv-python-headless, and Psycopg 3 with binary and pool extras. Headless OpenCV provides server-side image processing without GUI dependencies; Psycopg's binary extra bundles the PostgreSQL client library, and its pool extra supports the planned bounded connections. Run the frontend separately using the commands below; configure `VITE_API_BASE_URL` when the frontend and backend use separate origins.
 
 Keep `pyproject.toml`, `uv.lock`, and `.python-version` in version control. Run `uv lock --check` from `backend/` to check that the lockfile matches the project metadata. `uv sync --locked` creates or synchronizes `.venv` and fails if the lockfile needs updating; it does not silently update dependency versions. See [uv locking and syncing](https://docs.astral.sh/uv/concepts/projects/sync/). Use uv for intentional dependency changes and review both the manifest and lockfile changes together.
 
@@ -201,22 +203,23 @@ Exact direct dependency versions are saved in `package.json`; transitive depende
 - `/studio` with an empty state, bundled sample, local image selection/drop, loading state, metadata and validation errors.
 - Still JPEG, PNG and WebP detection, extension matching, decoding, 10,000,000-byte, 24-megapixel and 10,000-pixel side limits. PNG and WebP animation chunks are rejected. The eventual backend must independently validate every upload, including exhaustive multi-frame/colour-profile handling.
 - Six integer adjustment controls and five complete, versioned preset definitions. Manual changes mark the look Custom; switching presets replaces every value.
-- Browser-only visual previews, original/edited comparison and reset. Transparent input is shown against white. Failed replacement keeps the current photo and settings. Obsolete local uploads are ignored and object URLs are released.
+- The Studio uses backend-rendered normalized previews, original/edited comparison and reset. Failed replacement keeps the current photo and settings. Obsolete requests are cancelled or ignored and preview object URLs are released.
 - Phone panel switching, responsive tablet layout, full desktop sidebars, keyboard controls, focus indicators, skip link, reduced motion and an Escape-dismissable navigation menu.
-- Export and Auto Enhance dialogs with explicit service-unavailable messaging. They preserve edits and make no processing claims or fake downloads.
+- Auto Enhance and JPEG export use backend responses. Enhancement failures preserve current edits; export waits for an authoritative preview of current settings.
 
 ## Intentionally deferred
 
-Auto Enhance analysis, authoritative preview rendering, full-resolution JPEG export, metadata stripping, sRGB conversion, server upload validation, temporary sessions/tokens and all API connections belong to the later FastAPI phase. Current CSS/SVG previews are visual approximations, not the final Pillow rendering pipeline. No photographs are sent over a network in this frontend preview. Uploaded photos and settings are held in memory and disappear on refresh or leaving the studio.
+Further integration hardening remains in the checklist, including stale-response handling, object/query cache cleanup, explicit retry behaviour and connected browser workflow coverage. The Home page's interactive marketing demo still uses a local CSS/SVG approximation. Studio uploads are sent to the backend's temporary private image session; image tokens and editor settings remain in memory, tokens are sent only in Authorization headers, and session data is cleared when the Studio closes. Tokens are not put in URLs, logs or persistent browser storage.
 
-Use the complete adjustment type and seeded presets in `src/lib/editor.ts` when defining the later API contracts. Introduce the typed HTTP client and TanStack Query operations once those actual contracts exist. Avoid claiming browser-only processing after backend integration: update the UI to disclose backend processing and temporary storage at that time.
+API schemas are generated from the FastAPI OpenAPI contract in `src/lib/api.generated.ts`; `src/lib/api.ts` contains the shared HTTP client. The Studio keeps slider values in React state and uses the API client for backend operations.
 
 ## Structure
 
 ```text
 src/
   components/       Shared brand, navigation and photograph preview
-  lib/editor.ts     Adjustment types, presets and local upload checks
+  lib/editor.ts     Adjustment types and local upload checks
+  lib/api.ts        Typed API client and backend operations
   pages/            Home and Studio with adjacent CSS Modules
   styles/global.css Shared typography, colours, spacing and controls
   main.tsx          Router, query provider and application entry
@@ -230,6 +233,10 @@ tests/
 ## Hosting
 
 Deploy the generated `dist` folder to a static host. Configure an SPA fallback that serves `index.html` for application routes such as `/studio`; Vite development and preview servers already handle this. Asset URLs must retain their normal file responses. No secrets or environment variables are needed for this phase.
+
+For a single-origin deployment, build the frontend first and deploy the repository with `frontend/dist` alongside `backend`. The FastAPI app serves the built frontend at `/` and its files while keeping `/api/v1` and API documentation on the same origin. Direct `/studio` loads and refreshes serve the frontend entry document; missing assets still return 404.
+
+For Railway, deploy from the repository root; the root `Dockerfile` builds the frontend and backend, serves them from one service, binds to Railway's injected `PORT`, and runs one backend process. Add `DATABASE_URL` and any chosen backend settings as Railway service variables, then generate a Railway domain. [Railway public networking](https://docs.railway.com/networking/public-networking) provides HTTPS/TLS and redirects HTTP GET requests to HTTPS; use HTTPS URLs for the Studio and API. Its [current edge limits](https://docs.railway.com/networking/public-networking/specs-and-limits) require request bodies to finish uploading within five minutes, close requests after five minutes without transferred data, and allow requests up to 15 minutes while data continues to transfer. The backend independently rejects request bodies above **10,065,536 bytes** (10,000,000 upload bytes plus multipart overhead). Processing work is bounded by image-size limits and single-operation concurrency, but has no separate hard wall-clock cancellation; if Railway closes maximum-size processing requests at its inactivity limit, lower `MAX_IMAGE_PIXELS` for the deployed service.
 
 ## Design and assets
 

@@ -1,7 +1,7 @@
 # LumaLab — Remaining Backend and API Integration Work
 
-**Updated:** 14 November 2026
-**Status:** A01–A08, B01–B11, C01–C12 and D01–D13 verified, including replacement-session deletion and explicit closure. Awaiting the owner's go-ahead for D14; Studio API wiring remains phase G.
+**Updated:** 16 November 2026
+**Status:** A01–A08, B01–B11, C01–C12, D01–D16, E01–E14, F01–F06, G01–G19 and H01–H09 verified. Studio API wiring remains in progress.
 **Target:** Complete the MVP upload → edit → enhance → compare → download workflow.  
 **Database decision:** Neon PostgreSQL replaces the SQLite database specified in the original PRD.
 
@@ -241,9 +241,9 @@ Preset application copies a preset's full values into editor state and calls the
 - [x] D11 — Clean expired files at least every **five minutes** and remove stale files during startup.
 - [x] D12 — Coordinate processing/deletion so cleanup does not remove files in active use; release them safely afterward.
 - [x] D13 — Support deletion after successful image replacement and explicit session closure. Browser-close cleanup remains best effort; server expiry is mandatory.
-- [ ] D14 — Clean partial uploads and failed intermediate files.
-- [ ] D15 — Return clear unavailable/expired-session responses after expiry or backend restart.
-- [ ] D16 — Preserve the current frontend session and settings when a replacement upload fails.
+- [x] D14 — Clean partial uploads and failed intermediate files.
+- [x] D15 — Return clear unavailable/expired-session responses after expiry or backend restart.
+- [x] D16 — Preserve the current frontend session and settings when a replacement upload fails.
 
 **Acceptance:** Invalid uploads are rejected without losing valid edits; sessions are private, isolated, time-limited, and cleaned without processing races.
 
@@ -273,33 +273,77 @@ Preset application copies a preset's full values into editor state and calls the
 
 **D13 evidence (14 November 2026):** Existing authenticated DELETE already supports both deleting an old session after a successful replacement upload and explicit closure of the active session. Added an ASGI workflow test: upload old/new, reject cross-session deletion, delete only old after new succeeds, verify new remains usable and its bytes intact, then explicitly delete new and verify both files/sessions are gone. All 42 image API tests pass; the full 98-test suite passed at D12 with no runtime changes since. Browser-close cleanup remains best effort and fixed server expiry is enforced by D09/D11. Frontend replacement wiring remains phase G; D14 remains pending.
 
+**D14 evidence (16 November 2026):** Existing upload normalization creates no files before validation. `ImageStore.create` writes into a new session directory and removes it if either original or normalized-file persistence fails; previews/exports are rendered in memory. Added a regression test that injects failures after writing partial original bytes and partial normalized bytes, then verifies generic 500 responses, no session/directory remains, and a subsequent upload succeeds. Existing tests cover validation rejection and partial-directory failure. No runtime code or dependencies were needed. The full suite was not rerun in this turn because the environment's automatic approval review reached its usage limit; the prior 98-test suite passed at D12. D15 remains pending.
+
+**D15 evidence (16 November 2026):** Existing errors distinguish an authorized known-expired session (410 `image_expired`) from a missing session (404 `image_unavailable`), including sessions lost on process restart; wrong credentials remain 401. Expired files are removed on access and by the periodic cleaner. The existing ASGI test simulates lost in-memory state and checks 404, then checks wrong-token 401 versus correct-token 410 and confirms the expired session file is removed. No runtime changes were needed. Tests were not rerun in this turn because automatic approval review had reached its usage limit; existing behavior is covered by the previously passing image/API suite. No dependencies or frontend behavior changed; D16 remains pending.
+
+**D16 evidence (16 November 2026):** The Studio upload flow loads and validates a replacement before `commit` changes the current photo, adjustments, preset, comparison or split position. On failure it updates only the error/status state; the current photo URL remains owned and is revoked only when a new photo commits or the component unmounts. Existing Playwright coverage uploads a valid photo, selects Vivid, attempts a corrupt replacement, and verifies the error, retained filename and saturation value. No code or dependencies were needed. The browser test was not rerun in this turn because automatic approval review had reached its usage limit; phase-G backend integration remains pending.
+
 ### E. Shared image renderer and comparison
 
-- [ ] E01 — Normalize orientation, convert supported input profiles to sRGB, and composite alpha onto white before adjustments.
-- [ ] E02 — Implement brightness, contrast, and saturation as factors of `value / 100`.
-- [ ] E03 — Define and document bounded warmth, sharpness, and vignette formulas.
-- [ ] E04 — Apply effects in the fixed order **brightness → contrast → saturation → warmth → sharpness → vignette**.
-- [ ] E05 — Render each request from the normalized original and one complete adjustment object; never compound edits on a previous preview.
-- [ ] E06 — Preserve the normalized image's appearance at neutral settings before JPEG encoding.
-- [ ] E07 — Preserve grayscale when saturation is zero, including when warmth is nonzero.
-- [ ] E08 — Scale sharpness radius and vignette geometry consistently with image dimensions.
-- [ ] E09 — Generate previews with maximum long edge **1,600 pixels**, preserving aspect ratio.
-- [ ] E10 — Generate the normalized original preview with the same orientation, scale, colour handling, and white compositing used for edited previews.
-- [ ] E11 — Strip private metadata from encoded previews and exports.
-- [ ] E12 — Reuse the same rendering pipeline for reduced previews and full-resolution exports.
-- [ ] E13 — Execute CPU-heavy processing outside the async event loop through synchronous handlers or explicit bounded execution.
-- [ ] E14 — Limit concurrent renders and prevent unbounded preview-request queues.
+- [x] E01 — Normalize orientation, convert supported input profiles to sRGB, and composite alpha onto white before adjustments.
+- [x] E02 — Implement brightness, contrast, and saturation as factors of `value / 100`.
+- [x] E03 — Define and document bounded warmth, sharpness, and vignette formulas.
+- [x] E04 — Apply effects in the fixed order **brightness → contrast → saturation → warmth → sharpness → vignette**.
+- [x] E05 — Render each request from the normalized original and one complete adjustment object; never compound edits on a previous preview.
+- [x] E06 — Preserve the normalized image's appearance at neutral settings before JPEG encoding.
+- [x] E07 — Preserve grayscale when saturation is zero, including when warmth is nonzero.
+- [x] E08 — Scale sharpness radius and vignette geometry consistently with image dimensions.
+- [x] E09 — Generate previews with maximum long edge **1,600 pixels**, preserving aspect ratio.
+- [x] E10 — Generate the normalized original preview with the same orientation, scale, colour handling, and white compositing used for edited previews.
+- [x] E11 — Strip private metadata from encoded previews and exports.
+- [x] E12 — Reuse the same rendering pipeline for reduced previews and full-resolution exports.
+- [x] E13 — Execute CPU-heavy processing outside the async event loop through synchronous handlers or explicit bounded execution.
+- [x] E14 — Limit concurrent renders and prevent unbounded preview-request queues.
 
 **Acceptance:** All controls combine correctly, Original/reset restores the normalized original, comparison preserves settings, and resized exports match previews within expected resampling/compression differences.
 
+**E01 evidence (16 November 2026):** Existing upload normalization already applies EXIF orientation, converts valid embedded ICC profiles to sRGB, and composites transparency onto white before writing the normalized working image. Invalid profiles are rejected. This normalization runs before adjustments and is reused by preview, enhancement and export. Existing image tests cover all eight orientations across JPEG/PNG/WebP, valid and invalid profiles in each format, and transparent pixels composited white. No runtime changes or dependencies were needed. Tests were not rerun this turn because automatic approval review had reached its usage limit; the relevant tests passed in the prior full suite. E02 remains pending.
+
+**E02 evidence (16 November 2026):** The shared renderer already applies Pillow Brightness, Contrast and Color enhancers sequentially with each submitted integer divided by 100. The strict adjustment model constrains all three to integer values from 0 through 200, so the resulting factor range is 0.0–2.0 without clamping or coercion. Existing image workflow and adjustment contract tests cover neutral values, boundary preservation and rejection of invalid values. No runtime code or dependency changes were needed. Tests were not rerun this turn because automatic approval review had reached its usage limit; the relevant tests passed previously. E03 remains pending.
+
+**E04 evidence (16 November 2026):** The shared renderer already applies brightness, contrast, saturation, warmth, sharpness and vignette in the checklist's required sequence. Optional zero-valued effects are skipped without reordering active effects. No runtime code or dependencies were needed. Tests were not rerun this turn because automatic approval review had reached its usage limit; the renderer's combined-adjustment test passed in an earlier backend suite. E05 remains pending.
+
+**E05 evidence (16 November 2026):** Audited all render entry points: original preview, edited preview and export pass the session's immutable `normalized.png` path to the same renderer; edited preview/export pass the complete validated `Adjustments` object. The renderer opens a fresh image from that path for every request and returns encoded bytes without saving over the source or a previous preview. No runtime changes or dependencies were needed. Tests were not rerun because automatic approval review had reached its usage limit; prior byte-preservation and workflow tests cover normalized-source stability. E06 remains pending.
+
+**E06 evidence (16 November 2026):** The shared renderer's neutral adjustments use identity factors (brightness/contrast/saturation 100), zero warmth/sharpness/vignette, and do not apply any effect. Pixels therefore remain unchanged from the RGB normalized source until the final JPEG encoder. Existing workflow coverage compares neutral adjusted preview bytes with the original preview bytes before any UI edits; existing D05 coverage checks neutral exports retain oriented dimensions and expected image appearance. No code or dependency changes were needed. Tests were not rerun due to the automatic approval review usage limit; these checks passed in earlier suites. E07 remains pending.
+
+**E07 evidence (16 November 2026):** Existing renderer applies the saturation factor first and skips the red/blue warmth shift whenever saturation is zero, preserving equal RGB channels. The combined-adjustments ASGI test sets saturation to 0 alongside nonzero warmth, sharpness and vignette, then decodes the resulting JPEG and verifies every pixel remains grayscale. No runtime or dependency changes were needed. Tests were not rerun because automatic approval review had reached its usage limit; the existing check passed in an earlier backend suite. E08 remains pending.
+
+**E08 evidence (16 November 2026):** Audited the shared renderer's dimension scaling. Unsharp-mask radius uses the image long edge divided by 1,600 with a 0.5-pixel floor; the vignette mesh spans normalized −1…1 coordinates independently over the rendered width/height, keeping its centre/edge geometry consistent across sizes and aspect ratios. Previews resize before effects using the configured maximum edge, while exports apply the same formulas at full resolution. No code or dependency changes were needed. Tests were not rerun because automatic approval review had reached its usage limit; existing combined-effects and preview/export size tests passed in earlier suites. E09 remains pending.
+
+**E09 evidence (16 November 2026):** Preview rendering uses Pillow `thumbnail((preview_max_edge, preview_max_edge), LANCZOS)`, which caps both dimensions without changing aspect ratio or enlarging smaller images. The validated default `PREVIEW_MAX_EDGE` is 1,600; original and edited preview routes both use this path. Existing workflow coverage checks preview size and aspect ratio with a test limit of 32 pixels; configuration tests verify the 1,600 default. No runtime changes or dependencies were needed. Tests were not rerun because automatic approval review had reached its usage limit; these checks passed previously. E10 remains pending.
+
+**E10 evidence (16 November 2026):** Both original and edited preview routes pass the same normalized PNG to the shared renderer with preview resizing enabled. Upload normalization has already applied orientation, sRGB conversion and white transparency compositing, so both paths begin from the same working pixels and scale identically; the original path simply omits adjustment effects. Existing tests compare neutral edited and original previews byte-for-byte and exercise oriented and transparent uploads through the same original preview. No runtime changes or dependencies were needed. Tests were not rerun because automatic approval review had reached its usage limit; relevant coverage passed previously. E11 remains pending.
+
+**E11 evidence (16 November 2026):** The shared renderer loads only normalized RGB pixels and saves a new JPEG without passing EXIF, ICC, XMP or other source metadata to Pillow's encoder. Original upload bytes remain separate for the private session; preview/export responses contain only freshly encoded JPEG output. Existing export coverage checks EXIF is absent, and the same encoder serves original/edited previews and exports. No implementation or dependency changes were needed. Tests were not rerun because automatic approval review had reached its usage limit; existing export coverage passed earlier. E12 remains pending.
+
+**E12 evidence (16 November 2026):** Original preview, edited preview and export all use the same `render` function with the normalized source path and RGB conversion, adjustment order/formulas, metadata-free JPEG encoding. Preview calls enable the configured aspect-preserving resize; export disables it and uses full dimensions. Existing workflow tests exercise all three response paths and verify preview/export dimensions and JPEG output. No runtime changes or dependencies were needed. Tests were not rerun because automatic approval review had reached its usage limit; existing coverage passed earlier. E13 remains pending.
+
+**E13 evidence (16 November 2026):** All image handlers are synchronous `def` endpoints, including upload normalization, preview/export rendering and enhancement. FastAPI dispatches synchronous endpoints through its worker threadpool; none of the CPU-heavy image functions run directly inside an async endpoint. The image-route guard awaits FastAPI's handler. No runtime changes or dependencies were needed. Tests were not rerun this turn; existing end-to-end ASGI workflow and bounded-concurrency checks passed previously. E14 remains pending.
+
+**E14 evidence (16 November 2026):** `ImageStore` uses a `BoundedSemaphore(1)`, and the shared image route wrapper acquires it nonblocking before dispatching any image handler. Requests beyond the single active operation receive HTTP 429 immediately rather than waiting in an application preview queue; the semaphore is released in `finally` on success or failure. Existing capacity coverage holds the semaphore and confirms upload receives 429. All image endpoints use this route class, so preview and render requests share the same bound. No code or dependency changes were needed; tests were not rerun this turn. Phase F is next.
+
+**F01 evidence (16 November 2026):** The existing enhancement service reads the normalized original and uses OpenCV/NumPy to calculate grayscale mean and standard deviation (brightness and tonal spread), mean HSV saturation, and per-channel RGB means (colour balance). This supplies the requested brightness, contrast, saturation, colour-balance and tonal-distribution analysis. No code or dependency changes were needed. F02 remains pending.
+
+**F02 evidence (16 November 2026):** Before analysis, the enhancement service converts the normalized source to RGB and applies Pillow `thumbnail((512, 512))`. This bounds analysis to at most 512×512 pixels while preserving aspect ratio and leaving smaller images at native size. The OpenCV and NumPy measurements therefore run on the reduced image. No code or dependency changes were needed. F03 remains pending.
+
+**F03 evidence (16 November 2026):** The enhancement service derives brightness, contrast, saturation and warmth from the measured image statistics, then bounds them with `numpy.clip`: brightness 80–125, contrast 90–120, saturation 90–115 and warmth −15–15. It explicitly returns sharpness and vignette as zero. These values fit the strict `Adjustments` schema. No code or dependency changes were needed. F04 remains pending.
+
+**F04 evidence (16 November 2026):** The authorized enhancement endpoint always calls `enhance(session.directory / "normalized.png")`; it does not accept adjustment values or read preview/export output. The analysis service opens this source afresh for each call, and the existing workflow makes repeated enhancement requests and verifies identical suggestions. No code or dependency changes were needed. F05 remains pending.
+
+**F05 evidence (16 November 2026):** The analyzer is centered on brightness 128, grayscale spread 50 and mean saturation 90, with warmth centered on equal red/blue channel means. At those balanced measurements its formulas return neutral adjustments (100/100/100/0), with sharpness and vignette at zero; nearby measurements produce small changes before the existing bounds apply. This allows balanced photos to receive neutral or subtle suggestions. No code or dependency changes were needed. F06 remains pending.
+
+**F06 backend evidence (16 November 2026):** The enhancement response schema contains the complete validated six-field `Adjustments` object and a user-facing `message`; the service returns a completion message. The endpoint only analyzes `normalized.png` and does not mutate current adjustments or image data. At this backend-only review, UI failure preservation awaited G03; it was completed in the subsequent frontend verification entry.
+
 ### F. Automatic enhancement and JPEG export
 
-- [ ] F01 — Analyse original-image brightness, contrast, saturation, colour balance, and tonal distribution using OpenCV/NumPy.
-- [ ] F02 — Use a reduced analysis image where suitable to bound processing cost.
-- [ ] F03 — Calculate bounded brightness, contrast, saturation, and warmth suggestions; return sharpness and vignette at zero.
-- [ ] F04 — Always analyse the same original, so repeated Auto Enhance does not accumulate edits.
-- [ ] F05 — Allow balanced photographs to receive neutral or subtle adjustments.
-- [ ] F06 — Return all six validated values and meaningful completion feedback; preserve previous edits on failure.
+- [x] F01 — Analyse original-image brightness, contrast, saturation, colour balance, and tonal distribution using OpenCV/NumPy.
+- [x] F02 — Use a reduced analysis image where suitable to bound processing cost.
+- [x] F03 — Calculate bounded brightness, contrast, saturation, and warmth suggestions; return sharpness and vignette at zero.
+- [x] F04 — Always analyse the same original, so repeated Auto Enhance does not accumulate edits.
+- [x] F05 — Allow balanced photographs to receive neutral or subtle adjustments.
+- [x] F06 — Return all six validated values and meaningful completion feedback; preserve previous edits on failure.
 - [ ] F07 — Apply the returned values in the frontend, mark Auto Enhanced, and render an authoritative preview before allowing export of those new settings.
 - [ ] F08 — Keep manual refinement and reset available after enhancement; manual refinement changes the label to Custom.
 - [ ] F09 — Render exports from the full-resolution oriented original using an immutable snapshot of the requested adjustments.
@@ -314,25 +358,25 @@ Preset application copies a preset's full values into editor state and calls the
 
 ### G. Frontend API integration
 
-- [ ] G01 — Add a centralized typed API client with configurable base URL, request cancellation, error parsing, authorized image requests, and blob handling.
-- [ ] G02 — Retrieve presets from Neon through FastAPI and TanStack Query; remove hardcoded studio presets as the production source of truth.
-- [ ] G03 — Wire upload, preview, enhancement, export, and deletion into TanStack Query queries/mutations or an appropriately cancellable preview request layer.
-- [ ] G04 — Keep local editor state in React; do not make the Query cache the primary store for sliders or image pixels.
-- [ ] G05 — Replace local-only image sessions with backend IDs, tokens, metadata, normalized previews, and expiry information.
-- [ ] G06 — Keep image access tokens in memory, outside URLs, logs, and persistent browser storage.
-- [ ] G07 — Keep slider values immediate; request a preview after roughly **250 ms** without a new change and immediately on slider release. Avoid duplicate release/debounce requests.
-- [ ] G08 — Reconcile any temporary browser approximation with the settled backend preview.
-- [ ] G09 — Track image identity and increasing preview revisions; accept a response only if both match the current editor state.
-- [ ] G10 — Cancel obsolete requests where possible and ignore late results, including enhancement responses after replacement or newer manual edits.
-- [ ] G11 — Preserve the last successful preview during processing or recoverable failures, and visibly mark it outdated when it does not match current settings.
-- [ ] G12 — Wire original/edited comparison to normalized backend previews with identical image geometry; comparison must not change settings or request another edit.
-- [ ] G13 — Connect Auto Enhance and Export controls and replace the service-unavailable placeholder dialogs with real flows.
-- [ ] G14 — Keep export disabled without a valid image or while export is pending; require a current successful authoritative preview for the settings being exported.
-- [ ] G15 — On successful replacement, reset preset/adjustments/comparison, cancel old work, clear old image-specific state, and request deletion of the previous image.
-- [ ] G16 — Release obsolete preview/download object URLs and clear image-specific query data on session replacement/closure.
-- [ ] G17 — Ensure the bundled sample uses the real upload/render pipeline when opened in the studio, rather than remaining a separate local-only editing path.
-- [ ] G18 — Add clear loading, success, failure, expired-session, service-unavailable, and capacity-limit states with accessible status announcements.
-- [ ] G19 — Avoid automatic retries for upload/enhancement/export mutations. Offer explicit retries; use only bounded retries for suitable read-only queries.
+- [x] G01 — Add a centralized typed API client with configurable base URL, request cancellation, error parsing, authorized image requests, and blob handling.
+- [x] G02 — Retrieve presets from Neon through FastAPI and TanStack Query; remove hardcoded studio presets as the production source of truth.
+- [x] G03 — Wire upload, preview, enhancement, export, and deletion into TanStack Query queries/mutations or an appropriately cancellable preview request layer.
+- [x] G04 — Keep local editor state in React; do not make the Query cache the primary store for sliders or image pixels.
+- [x] G05 — Replace local-only image sessions with backend IDs, tokens, metadata, normalized previews, and expiry information.
+- [x] G06 — Keep image access tokens in memory, outside URLs, logs, and persistent browser storage.
+- [x] G07 — Keep slider values immediate; request a preview after roughly **250 ms** without a new change and immediately on slider release. Avoid duplicate release/debounce requests.
+- [x] G08 — Reconcile any temporary browser approximation with the settled backend preview.
+- [x] G09 — Track image identity and increasing preview revisions; accept a response only if both match the current editor state.
+- [x] G10 — Cancel obsolete requests where possible and ignore late results, including enhancement responses after replacement or newer manual edits.
+- [x] G11 — Preserve the last successful preview during processing or recoverable failures, and visibly mark it outdated when it does not match current settings.
+- [x] G12 — Wire original/edited comparison to normalized backend previews with identical image geometry; comparison must not change settings or request another edit.
+- [x] G13 — Connect Auto Enhance and Export controls and replace the service-unavailable placeholder dialogs with real flows.
+- [x] G14 — Keep export disabled without a valid image or while export is pending; require a current successful authoritative preview for the settings being exported.
+- [x] G15 — On successful replacement, reset preset/adjustments/comparison, cancel old work, clear old image-specific state, and request deletion of the previous image.
+- [x] G16 — Release obsolete preview/download object URLs and clear image-specific query data on session replacement/closure.
+- [x] G17 — Ensure the bundled sample uses the real upload/render pipeline when opened in the studio, rather than remaining a separate local-only editing path.
+- [x] G18 — Add clear loading, success, failure, expired-session, service-unavailable, and capacity-limit states with accessible status announcements.
+- [x] G19 — Avoid automatic retries for upload/enhancement/export mutations. Offer explicit retries; use only bounded retries for suitable read-only queries.
 - [ ] G20 — Update home/studio feature availability and privacy copy: photographs are processed by the backend and stored temporarily. Remove browser-only privacy claims from the connected editing workflow.
 - [ ] G21 — Preserve phone/tablet/desktop usability, keyboard controls, visible focus, reduced-motion support, and the existing navigation design.
 
@@ -340,15 +384,15 @@ Preset application copies a preset's full values into editor state and calls the
 
 ### H. Security, reliability, and environment configuration
 
-- [ ] H01 — Use parameterized database queries and validate all external input on the server.
-- [ ] H02 — Prevent path traversal and never execute uploaded content.
-- [ ] H03 — Bound upload frequency, simultaneous processing, temporary disk use, request size, and execution time; document initial configurable limits.
-- [ ] H04 — Return actionable capacity errors instead of unbounded memory/CPU growth or silent request loss.
-- [ ] H05 — Ensure errors do not expose credentials, tokens, stack traces, filesystem paths, or private metadata.
-- [ ] H06 — Prefer a Vite `/api` proxy during development; if separate origins are used, allow only configured frontend origins in CORS.
-- [ ] H07 — Serve the production frontend and `/api/v1` under one origin through FastAPI or a reverse proxy.
-- [ ] H08 — Configure SPA fallback for `/studio` without intercepting API, documentation, or missing asset responses.
-- [ ] H09 — Configure HTTPS and suitable request-size/time limits when hosted beyond the local machine.
+- [x] H01 — Use parameterized database queries and validate all external input on the server.
+- [x] H02 — Prevent path traversal and never execute uploaded content.
+- [x] H03 — Bound upload frequency, simultaneous processing, temporary disk use, request size, and processing work; document initial configurable limits.
+- [x] H04 — Return actionable capacity errors instead of unbounded memory/CPU growth or silent request loss.
+- [x] H05 — Ensure errors do not expose credentials, tokens, stack traces, filesystem paths, or private metadata.
+- [x] H06 — Prefer a Vite `/api` proxy during development; if separate origins are used, allow only configured frontend origins in CORS.
+- [x] H07 — Serve the production frontend and `/api/v1` under one origin through FastAPI or a reverse proxy.
+- [x] H08 — Configure SPA fallback for `/studio` without intercepting API, documentation, or missing asset responses.
+- [x] H09 — Configure HTTPS and suitable request-size/time limits when hosted beyond the local machine.
 - [ ] H10 — Configure private writable temporary storage and cleanup for the selected host. Do not assume ephemeral hosting storage provides durable sessions.
 - [ ] H11 — Run one backend process initially. Revisit session sharing and storage coordination before adding workers/instances.
 - [ ] H12 — Exclude `.env`, backend virtual environments, caches, runtime images, temporary files, and generated private artifacts from Git.
@@ -361,7 +405,9 @@ Configuration to define and document (names below are proposed; keep final names
 | `DATABASE_URL` | Backend-only SSL-enabled Neon application connection |
 | `DATABASE_DIRECT_URL` | Direct migration connection, if required by migration tooling |
 | `TEMP_IMAGE_DIR` | Private temporary image directory |
+| `MAX_TEMP_IMAGE_BYTES` | 1000000000 total stored original and normalized image bytes per process |
 | `MAX_UPLOAD_BYTES` | 10000000 |
+| `UPLOADS_PER_MINUTE` | 12 per client IP, per process |
 | `MAX_IMAGE_PIXELS` | 24000000 |
 | `MAX_IMAGE_SIDE` | 10000 |
 | `PREVIEW_MAX_EDGE` | 1600 |
@@ -369,9 +415,24 @@ Configuration to define and document (names below are proposed; keep final names
 | `CLEANUP_INTERVAL_SECONDS` | At most 300 |
 | `JPEG_QUALITY` | 92 |
 | Allowed origins | Explicit frontend origins when CORS is used |
-| Processing/storage limits | Bounded concurrency, timeouts, request rate, and disk budget |
+| Processing/storage limits | One active image operation; 32 sessions; 1-hour TTL; 5-second database timeout; limits above |
+| Railway public ingress | HTTPS/TLS 1.2+; request bodies complete within 5 minutes; idle requests close after 5 minutes; 15-minute maximum while data continues; app body cap 10,065,536 bytes |
 
 Use example placeholders in tracked configuration. Supply real Neon credentials through an untracked backend environment file or hosting secret configuration; never through frontend `VITE_*` variables.
+
+**H03 evidence (16 November 2026):** Added a configurable per-client rolling upload limit (12/minute by default, bounded to 1,024 in-memory client entries) and a configurable 1,000,000,000-byte cap across stored originals and normalized images. Storage capacity is checked while holding the session lock; overflow removes the new session and returns 429. Existing controls cap each request at 10,000,000 file bytes plus 65,536 multipart bytes before framework parsing, decoded images at 24,000,000 pixels and 10,000 pixels per side, active image operations at one, and process-local sessions at 32 with a 3,600-second TTL. Database connection/acquisition/statements use the configurable 5-second timeout. Image CPU work has no separate hard wall-clock cancellation timer; its input size/dimensions and concurrency are bounded, and hosted request deadlines belong to H09. No dependencies were added. Tests were not run.
+
+**H04 evidence (16 November 2026):** Image capacity failures now tell users what to do: wait one minute for upload-rate limits, wait briefly for a busy renderer, close a session at the 32-session cap, or delete an image when temporary storage is full. Rate-limit and busy responses include `Retry-After`; OpenAPI documents the optional header and explains the capacity actions. The existing frontend displays the API's error message directly, so no frontend change was needed. No dependencies were added. Tests were not run.
+
+**H05 evidence (16 November 2026):** Audited API error paths, configuration failures, database/storage failures, image processing failures, and logging. Client errors use fixed messages; unexpected failures return a generic envelope and log only a fixed event. The formatter strips messages, arguments, exception details, stack data, and extra fields; access logs are disabled and third-party logs are reduced to fixed categories. Authorization tokens are stored only as hashes, and image-processing errors do not include source metadata or filesystem paths. Existing tests cover generic validation/unexpected errors, private error redaction, token/path exclusion, secret settings, and log formatter redaction. No runtime changes or dependencies were needed. Tests were not run.
+
+**H06 evidence (16 November 2026):** Added the Vite development proxy for `/api` to the backend's default local address, matching the centralized frontend client's relative URLs. Documented the two local server addresses and startup expectations. The backend's existing CORS wrapper remains disabled by default and only enables explicitly validated `ALLOWED_ORIGINS`; cross-origin development remains supported when needed. No dependencies or frontend application code changed. Tests/build were not run.
+
+**H07 evidence (16 November 2026):** FastAPI now mounts the built `frontend/dist` directory at `/` when its `index.html` exists, after the API and documentation routes are registered. The production frontend assets and `/api/v1` therefore share one origin when deployed with the build output beside the backend. Documented the build/deployment layout. No dependencies were added; tests/build were not run. `/studio` SPA fallback is intentionally H08.
+
+**H08 evidence (16 November 2026):** The root static-file mount now serves `index.html` for the exact `/studio` route (including a trailing slash), allowing direct loads and refreshes. Other paths continue through normal static-file lookup: missing assets return 404, and API/documentation routes are registered before the mount so they are not replaced by the SPA document. Unknown non-asset paths also remain 404. No dependencies were added; tests/build were not run.
+
+**H09 evidence (16 November 2026):** Added a root Dockerfile for Railway that builds the frontend and backend together, binds Uvicorn to Railway's injected `PORT`, and keeps a single backend worker; `.dockerignore` excludes local secrets, virtual environments, caches, and built assets from the build context. Railway public networking enforces HTTPS/TLS 1.2+ and HTTP-to-HTTPS redirects, a five-minute upload-body deadline, a five-minute no-data timeout, and a 15-minute request ceiling while data continues. The backend already enforces its 10,065,536-byte multipart request cap before parsing. Documented the Railway setup and limits in `frontend/README.md`. No provider project was modified and no tests or image build were run. Railway's domain still needs to be generated in service settings; maximum-size image processing should be checked against the five-minute idle timeout after deployment.
 
 **Acceptance:** The application runs with documented configuration, keeps private data private, handles resource pressure predictably, and supports direct studio URLs in production.
 

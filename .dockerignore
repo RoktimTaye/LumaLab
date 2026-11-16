@@ -1,0 +1,14 @@
+.git
+**/.env
+**/.env.*
+!**/.env.example
+**/.venv
+**/.uv-cache
+**/node_modules
+**/dist
+**/.runtime
+**/__pycache__
+**/*.py[cod]
+frontend/test-results
+frontend/playwright-report
+frontend/screenshots

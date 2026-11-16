@@ -13,8 +13,9 @@ from app.schemas.images import Adjustments, Enhancement
 
 
 class ImageError(Exception):
-    def __init__(self, status: int, code: str, message: str):
+    def __init__(self, status: int, code: str, message: str, retry_after: int | None = None):
         self.status, self.code, self.message = status, code, message
+        self.retry_after = retry_after
         super().__init__(message)
 
 

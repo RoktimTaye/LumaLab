@@ -21,14 +21,16 @@ logger = logging.getLogger("lumalab")
 bearer = HTTPBearer(auto_error=False, description="Use the image-specific access_token returned by upload.")
 
 CACHE_HEADERS = {"Cache-Control": {"description": "Always no-store.", "schema": {"type": "string", "const": "no-store"}}}
+RETRY_AFTER_HEADER = {"Retry-After": {"description": "Seconds to wait before retrying, when applicable.", "schema": {"type": "integer", "minimum": 1}}}
 COMMON_ERRORS = {
     status: {"model": ErrorResponse, "description": description, "headers": CACHE_HEADERS}
     for status, description in {
         400: "Malformed multipart request.", 422: "Invalid request fields or undecodable image.",
-        429: "Image processing is busy or session capacity is full.",
+        429: "Capacity limit reached. The error message explains whether to wait, close a session, or delete an image.",
         500: "Image operation failed.", 503: "Private image storage is unavailable.",
     }.items()
 }
+COMMON_ERRORS[429] = {**COMMON_ERRORS[429], "headers": {**CACHE_HEADERS, **RETRY_AFTER_HEADER}}
 SESSION_ERRORS = {
     status: {"model": ErrorResponse, "description": description, "headers": CACHE_HEADERS}
     for status, description in {
@@ -54,8 +56,13 @@ class ImageRoute(APIRoute):
                 store = getattr(request.app.state, "image_store", None)
                 if store is None:
                     raise ImageError(503, "service_unavailable", "Image storage is unavailable.")
+                if self.name == "upload":
+                    limiter = getattr(request.app.state, "upload_rate_limit", None)
+                    client = request.client.host if request.client else "unknown"
+                    if limiter is not None and not limiter.allow(client):
+                        raise ImageError(429, "upload_rate_exceeded", "Upload limit reached. Wait one minute before uploading again.", retry_after=60)
                 if not store.processing.acquire(blocking=False):
-                    raise ImageError(429, "capacity_exceeded", "Image processing is busy. Try again shortly.")
+                    raise ImageError(429, "capacity_exceeded", "Image processing is busy. Wait a moment, then try again.", retry_after=1)
                 try:
                     if self.name == "upload" and request.method == "POST":
                         request = bounded_upload(request, request.app.state.settings.max_upload_bytes)
@@ -74,6 +81,8 @@ class ImageRoute(APIRoute):
                 logger.error("image_operation_failed")
                 error = ImageError(500, "image_processing_failed", "Unable to complete the image operation.")
             headers = {"Cache-Control": "no-store"}
+            if error.status == 429 and error.retry_after is not None:
+                headers["Retry-After"] = str(error.retry_after)
             if error.status == 401:
                 headers["WWW-Authenticate"] = "Bearer"
             return error_response(error.status, error.code, error.message, headers)

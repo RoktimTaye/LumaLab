@@ -27,7 +27,9 @@ class Settings(BaseSettings):
     database_pool_max_size: int = Field(default=4, ge=1, le=20)
     database_timeout_seconds: int = Field(default=5, ge=1, le=60)
     temp_image_dir: Path = RUNTIME_DIR / "images"
+    max_temp_image_bytes: int = Field(default=1_000_000_000, gt=0)
     max_upload_bytes: int = Field(default=10_000_000, gt=0)
+    uploads_per_minute: int = Field(default=12, ge=1)
     max_image_pixels: int = Field(default=24_000_000, gt=0)
     max_image_side: int = Field(default=10_000, gt=0)
     preview_max_edge: int = Field(default=1_600, gt=0)

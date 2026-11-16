@@ -32,6 +32,7 @@ class ImageStore:
         self.sessions: dict[str, Session] = {}
         self.lock = RLock()
         self.processing = BoundedSemaphore(1)
+        self.stored_bytes = 0
 
     def create(self, data: bytes, image: Image.Image, filename: str, detected: str) -> UploadedImage:
         with self.lock:
@@ -44,9 +45,13 @@ class ImageStore:
             try:
                 (directory / "original").write_bytes(data)
                 image.save(directory / "normalized.png", format="PNG")
+                stored_bytes = sum(path.stat().st_size for path in directory.iterdir() if path.is_file())
+                if self.stored_bytes + stored_bytes > self.settings.max_temp_image_bytes:
+                    raise ImageError(429, "storage_capacity_exceeded", "Temporary image storage is full. Delete an image and try again.")
             except Exception:
                 shutil.rmtree(directory)
                 raise
+            self.stored_bytes += stored_bytes
             uploaded_at = datetime.now(timezone.utc)
             expires = uploaded_at + timedelta(seconds=self.settings.image_ttl_seconds)
             self.sessions[image_id] = Session(directory, sha256(token.encode()).digest(), uploaded_at, expires, filename)
@@ -58,9 +63,14 @@ class ImageStore:
             now = datetime.now(timezone.utc)
             for image_id, session in list(self.sessions.items()):
                 if session.expires_at <= now:
+                    self.stored_bytes -= self._session_size(session.directory)
                     if session.directory.exists():
                         shutil.rmtree(session.directory)
                     del self.sessions[image_id]
+
+    @staticmethod
+    def _session_size(directory: Path) -> int:
+        return sum(path.stat().st_size for path in directory.iterdir() if path.is_file()) if directory.exists() else 0
 
     @contextmanager
     def authorized(self, image_id: str, token: str) -> Iterator[Session]:
@@ -71,6 +81,7 @@ class ImageStore:
             if not secrets.compare_digest(session.token_hash, sha256(token.encode()).digest()):
                 raise ImageError(401, "unauthorized", "A valid image access token is required.")
             if session.expires_at <= datetime.now(timezone.utc):
+                self.stored_bytes -= self._session_size(session.directory)
                 if session.directory.exists():
                     shutil.rmtree(session.directory)
                 raise ImageError(410, "image_expired", "Image session has expired.")
@@ -78,5 +89,7 @@ class ImageStore:
 
     def delete(self, image_id: str, token: str) -> None:
         with self.authorized(image_id, token) as session:
+            stored_bytes = self._session_size(session.directory)
             shutil.rmtree(session.directory)
+            self.stored_bytes -= stored_bytes
             del self.sessions[image_id]

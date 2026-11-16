@@ -1,5 +1,226 @@
 # Frontend verification
 
+## Backend H02 verification — 16 November 2026
+
+- Confirmed submitted filenames are reduced to a basename before storage/display and sanitized again for download names. Session directories use server-generated random hexadecimal IDs; request IDs are looked up in the active-session map and never treated as filesystem paths. Upload bytes are validated and decoded through Pillow, then stored as data; uploaded content is never executed.
+- No code changes were needed.
+
+## Backend H01 verification — 16 November 2026
+
+- Audited database operations: runtime preset retrieval and seed upserts bind values through Psycopg parameters; query structure is static. External image data is bounded and decoded/validated server-side, settings and adjustment payloads use strict Pydantic schemas with bounds/extra-field rejection, and session IDs use a fixed pattern before response serialization.
+- Migration SQL is loaded from trusted local migration files; migration-ledger values and statement timeouts are parameterized. No code changes were needed.
+
+## Frontend G19 verification — 16 November 2026
+
+- Confirmed TanStack Query disables automatic retries for all mutations and allows one retry for read-only queries. Failed uploads can be explicitly resubmitted, and Auto Enhance/Export controls become available again after failure so the user can retry deliberately.
+- No code changes were needed.
+
+## Frontend G18 verification — 16 November 2026
+
+- Loading and success states are announced through the Studio `role="status"`; failures use `role="alert"`, including inside the active modal. API errors give recovery guidance for expired sessions, clear temporary-unavailable messaging for 503, and preserve backend capacity-limit/busy messages for 429. Preset service failures also use an alert.
+- The production build passed. No tests were run.
+
+## Frontend G17 verification — 16 November 2026
+
+- Confirmed the sample image is fetched, wrapped as a `File`, and passed to the shared `upload()` handler. That handler performs local checks, creates the backend session, obtains the normalized original preview and uses the same authoritative render path as a user-selected image.
+- No code changes were needed.
+
+## Frontend G16 verification — 16 November 2026
+
+- Preview object URLs are revoked when replaced, reset to original, or the Studio closes; downloaded JPEG URLs are revoked after the browser receives the click. No image/session query data is cached. Image mutations reset on completion and session replacement/closure, with zero cache time after detachment.
+- The production build passed. No tests were run.
+
+## Frontend G15 verification — 16 November 2026
+
+- Confirmed replacement commits only after upload and original preview succeed. Commit cancels old preview/enhancement/export work, swaps session state, resets adjustments/preset/comparison, releases old preview URLs, and requests deletion of the prior image session. Failed replacement keeps the existing image and edits.
+- No code changes were needed.
+
+## Frontend G14 verification — 16 November 2026
+
+- Confirmed both export entry points require a loaded backend image and `previewReady`; the readiness flag is set only for the matching current settings after an authoritative preview succeeds (or the normalized original matches neutral settings). Export controls also disable while the mutation is pending, and the handler rechecks readiness before submitting an immutable adjustment snapshot.
+- No code changes were needed.
+
+## Frontend G13 verification — 16 November 2026
+
+- Confirmed Auto Enhance opens a real action that calls the backend and applies returned adjustments only on success. Export calls the backend, downloads its JPEG response, and stays disabled until current settings have a successful preview. The unavailable-service placeholder copy and action are gone.
+- No code changes were needed.
+
+## Frontend G12 verification — 16 November 2026
+
+- The Studio comparison pairs the edited server JPEG with the original normalized server preview. Both use the same normalized image and preview dimensions. Toggling comparison or moving its divider changes only compare/split React state; neither is a dependency of the preview request effect, so no render request is sent and adjustment values remain unchanged.
+- No code changes were needed.
+
+## Frontend G11 verification — 16 November 2026
+
+- The active preview URL changes only after a matching server response succeeds; pending or failed renders leave the previous successful preview in place. The workspace toolbar now marks it “PREVIEW OUTDATED” whenever the current settings lack a successful matching render. The status area reports progress or the failed update.
+- The production build passed. No tests were run.
+
+## Frontend G10 verification — 16 November 2026
+
+- Replacing an image aborts active upload, preview, enhancement and export requests where supported. Manual edits, preset changes and reset synchronously invalidate preview revisions and abort previews; they also increment an edit revision and abort Auto Enhance. Responses are applied only if the request remains active and its image/edit revision still matches.
+- The production build passed. No tests were run.
+
+## Frontend G09 verification — 16 November 2026
+
+- Preview revisions increment from a React ref for each scheduled server request. The response must echo that revision and still match the active image ID and latest revision before its JPEG can replace the preview. Replaced or superseded image responses are discarded.
+- No code changes were needed.
+
+## Frontend G08 verification — 16 November 2026
+
+- The Studio no longer applies its browser filter approximation to the working image. It replaces the preview URL with the returned server-rendered JPEG when the matching request succeeds; the previous successful image remains displayed while a request is pending or after failure. Original comparison uses the separate normalized backend preview. The Home page demo remains an independent illustrative preview.
+- No code changes were needed.
+
+## Frontend G07 verification — 16 November 2026
+
+- Slider values still update immediately in React. Server preview requests debounce for 250 ms after the latest change; pointer or keyboard release flushes a pending request immediately. A matching in-flight or already-rendered settings key prevents duplicate release/debounce requests.
+- The production build passed. No tests were run.
+
+## Frontend G06 verification — 16 November 2026
+
+- Audited token flow: the access token is held on the active Studio session in component memory and passed to the API client, which places it only in the `Authorization: Bearer` header. No URL, browser-storage, cookie, or logging use was found.
+- No code changes were needed.
+
+## Frontend G05 verification — 16 November 2026
+
+- Confirmed successful uploads now use the backend session ID and in-memory bearer token, server filename/format/oriented dimensions/expiry, and normalized original preview. The local validation URL is revoked after session setup; edited previews use short-lived object URLs.
+- No code changes were needed.
+
+## Frontend G04 verification — 16 November 2026
+
+- Confirmed slider values, active preset, comparison settings, preview readiness, and active image/session data are held in Studio React state/refs. TanStack Query caches the public preset response and mutation status only; no image pixels or editor values are stored in its query cache.
+- No code changes were needed.
+
+## Frontend G03 and F06 verification — 16 November 2026
+
+- Connected Studio upload/sample upload, normalized original preview, revision-tagged edited preview, original-based enhancement, JPEG export and session deletion through the centralized API client. TanStack Query mutations handle session mutations; preview requests use a cancellable 250 ms layer and reject stale revision/image responses. Bearer credentials stay in component memory.
+- Enhancement changes slider values only after a successful response, shows the backend completion message, and retains prior values on failure. Server previews replace the local approximation; export is disabled until the current settings have a successful preview. Replacing an image resets editor state and deletes the old session. The sample now uses the same upload pipeline.
+- `npm run build` passed. No tests were run.
+
+## Frontend G02 verification — 16 November 2026
+
+- Replaced the Studio's hardcoded preset source with the typed `/api/v1/presets` client query, cached through TanStack Query for five minutes. The backend returns the ordered Neon definitions; the Studio maps all six values into its adjustment state and shows loading/unavailable feedback. The marketing demo on Home retains its local illustrative presets; Studio no longer uses them.
+- No dependencies were added. Tests and build were not run.
+
+## Frontend G01 verification — 16 November 2026
+
+- Added `src/lib/api.ts` as the typed API client over the generated OpenAPI schema. It centralizes the configurable `VITE_API_BASE_URL`, optional cancellation signals, backend error-envelope parsing, bearer authorization, JSON requests, multipart upload, and JPEG/blob responses for preview/export. Added small endpoint methods for the existing health, presets and image routes so later wiring uses one transport layer.
+- Documented same-origin default and separate-host configuration. No dependency changes or tests/builds were run.
+
+## Frontend F06 verification — 16 November 2026
+
+- The backend enhancement response includes all six schema-validated adjustment values and a completion message. The Studio applies them only after a successful request and retains previous values on failure. F06 is complete.
+
+## Backend F05 verification — 16 November 2026
+
+- Checked the analysis formula's reference points: a balanced image at grayscale mean 128, spread 50, mean saturation 90 and equal red/blue means receives neutral brightness/contrast/saturation and zero warmth; sharpness and vignette are also zero. Nearby measurements shift suggestions gradually within F03's bounds.
+- No code or dependency changes were needed. F05 is complete; F06 remains pending.
+
+## Backend F04 verification — 16 November 2026
+
+- Confirmed the authorized enhancement route always passes the session's `normalized.png` to the analysis service. It has no adjustment input and reads no preview/export result. Existing workflow coverage repeats enhancement and checks identical suggestions.
+- No code or dependency changes were needed. F04 is complete; F05 is next.
+
+## Backend F03 verification — 16 November 2026
+
+- Audited the enhancement formulas: brightness is clipped to 80–125, contrast to 90–120, saturation to 90–115 and warmth to −15–15. Sharpness and vignette are explicitly zero; all values satisfy the strict adjustment schema.
+- No code or dependency changes were needed. F03 is complete; F04 is next.
+
+## Backend F02 verification — 16 November 2026
+
+- Confirmed enhancement converts the normalized source to RGB, then applies Pillow `thumbnail((512, 512))` before analysis. This caps work at 512×512 pixels, preserves aspect ratio, and does not enlarge smaller images.
+- No code or dependency changes were needed. F02 is complete; F03 is next.
+
+## Backend F01 verification — 16 November 2026
+
+- Audited the existing enhancement service. It reads the normalized original, then uses OpenCV/NumPy for grayscale mean and standard deviation, mean HSV saturation, and average RGB channels. These provide brightness, tonal spread, saturation and colour-balance measurements.
+- No code or dependency changes were needed. F01 is complete; F02 is next.
+
+## Backend E14 verification — 16 November 2026
+
+- Audited the shared image-route guard and store: a nonblocking `BoundedSemaphore(1)` admits one image operation and immediately returns 429 when occupied. The guard covers previews and other image endpoints and releases capacity in `finally`, so exceptions do not leave it locked.
+- Existing capacity coverage holds the semaphore and checks the upload receives 429. No implementation or dependency changes were needed; tests were not rerun this turn. E14 is complete; F01 is next.
+
+## Backend E13 verification — 16 November 2026
+
+- Audited every image endpoint: upload, original/edited preview, enhancement, export and deletion are synchronous `def` handlers. FastAPI runs synchronous endpoints in its worker threadpool, so Pillow/OpenCV/NumPy processing does not block the async event loop. The custom route wrapper awaits FastAPI's handler.
+- No code or dependencies were needed. Existing ASGI workflow and render-concurrency checks cover endpoint execution. Tests were not rerun this turn; existing checks passed previously. E13 is complete; E14 remains pending.
+
+## Backend E12 verification — 16 November 2026
+
+- Confirmed original preview, edited preview and full-resolution export call the same `render` function with the normalized source, common RGB conversion, effects and JPEG encoder. The preview flag enables configured aspect-preserving downscaling; export disables resize to retain full dimensions.
+- Existing workflow tests cover direct JPEG outputs for original preview, edited preview and export, while D05 orientation tests compare preview/export dimensions and appearance. No implementation or dependency changes were needed. Tests were not rerun because automatic approval review had reached its usage limit; existing coverage passed earlier. E12 is complete; E13 remains pending.
+
+## Backend E11 verification — 16 November 2026
+
+- Audited JPEG encoding: the shared renderer loads normalized RGB pixels and writes fresh JPEG bytes without passing source EXIF, ICC, XMP or other metadata options. Original upload bytes remain separate in private storage; preview/export responses use only this encoder.
+- Existing workflow coverage verifies exported JPEG EXIF is empty; the original and edited preview routes share the same encoder. No runtime changes or dependencies were needed. Tests were not rerun because automatic approval review had reached its usage limit; existing coverage passed earlier. E11 is complete; E12 remains pending.
+
+## Backend E10 verification — 16 November 2026
+
+- Audited the original and edited preview routes: both render the same session `normalized.png` with preview resizing enabled. Orientation, sRGB conversion and white alpha compositing already occurred during upload normalization; edited preview then applies adjustments, while the original preview omits them.
+- Existing coverage verifies original and neutral edited previews are byte-identical and checks orientation/transparent handling in uploads followed by preview generation. No code or dependencies were needed. Tests were not rerun because automatic approval review had reached its usage limit; these checks passed previously. E10 is complete; E11 remains pending.
+
+## Backend E09 verification — 16 November 2026
+
+- Audited shared preview scaling: Pillow thumbnail uses the configured square bound and LANCZOS, preserves aspect ratio and does not enlarge smaller images. The validated default long edge is 1,600; original and edited previews share this renderer path.
+- Existing workflow tests verify preview dimensions/aspect ratio at a reduced test bound; settings tests verify the 1,600 default. No code or dependencies were needed. Tests were not rerun because automatic approval review had reached its usage limit; existing coverage passed previously. E09 is complete; E10 remains pending.
+
+## Backend E08 verification — 16 November 2026
+
+- Audited dimension scaling: sharpness radius follows `max(0.5, long_edge / 1600)`. Vignette x/y coordinates each span −1…1 over the actual rendered width/height, so the radial mask scales with the image dimensions and aspect ratio. Preview rendering resizes to its configured maximum edge before effects; export applies the same formulas at full resolution.
+- No runtime changes or dependencies were needed. Existing combined-effects and preview/export size coverage applies; tests were not rerun because automatic approval review had reached its usage limit. E08 is complete; E09 remains pending.
+
+## Backend E07 verification — 16 November 2026
+
+- Confirmed zero saturation is applied before warmth, and the renderer skips the red/blue channel shift when saturation is zero. The existing combined-adjustments ASGI test combines zero saturation with nonzero warmth, sharpness and vignette, then decodes the JPEG and asserts all RGB channels remain equal for every pixel.
+- No code or dependencies were needed. Tests were not rerun because automatic approval review had reached its usage limit; the existing regression passed in an earlier backend suite. E07 is complete; E08 remains pending.
+
+## Backend E06 verification — 16 November 2026
+
+- Audited neutral rendering: brightness, contrast and saturation at 100 use identity factors; warmth, sharpness and vignette at zero are skipped. The RGB pixels loaded from the normalized image therefore remain unchanged until JPEG encoding.
+- Existing workflow coverage compares the neutral edited preview bytes with the original preview bytes; orientation coverage verifies neutral export dimensions and corner appearance. No code or dependencies were needed. Tests were not rerun because automatic approval review had reached its usage limit; these checks passed in earlier suites. E06 is complete; E07 remains pending.
+
+## Backend E05 verification — 16 November 2026
+
+- Audited original-preview, edited-preview and export handlers. Each passes the session's `normalized.png` to the shared renderer; preview/export pass the full validated adjustment model. Each render opens a fresh image and encodes to in-memory bytes, so edits never compound on a previous response.
+- No runtime code or dependencies were needed. Existing D06 workflow coverage checks source-file stability across original/edited previews, enhancement and export. Tests were not rerun because automatic approval review had reached its usage limit. E05 is complete; E06 remains pending.
+
+## Backend E04 verification — 16 November 2026
+
+- Audited the shared renderer's effect sequence: brightness → contrast → saturation → warmth → sharpness → vignette. Zero-valued optional warmth/sharpness/vignette steps are skipped; active effects retain the required order.
+- No implementation or dependency changes were needed. The existing combined-adjustments regression covers the renderer; tests were not rerun because automatic approval review had reached its usage limit. E04 is complete; E05 remains pending.
+
+## Backend E03 verification — 16 November 2026
+
+- Documented the renderer's existing bounded formulas: warmth shifts red/blue by `±0.4 × warmth` with clipping and skips at zero saturation; sharpness uses unsharp-mask radius `max(0.5, long_edge / 1600)`, percent `2 × sharpness` and threshold 3; vignette uses a normalized squared radial mask with maximum 0.7 attenuation, keeping pixel multipliers in [0.3, 1]. Strict model bounds cap all inputs.
+- Updated API guidance so clients/reviewers can interpret each adjustment. No implementation or dependency changes were needed. Tests were not rerun; automatic approval review remains at its usage limit. E03 is complete; E04 remains pending.
+
+## Backend E02 verification — 16 November 2026
+
+- Audited the shared renderer: brightness, contrast and saturation each use Pillow's corresponding enhancer with factor `value / 100`, in that order. The strict schema permits integers 0–200, producing a bounded 0.0–2.0 factor; it rejects floats, strings, booleans and out-of-range values without clamping.
+- Existing image workflow and adjustment contract tests cover neutral behavior, inclusive boundaries, invalid values and actual preview/export request validation. No runtime code or dependencies were needed. Tests were not rerun this turn because automatic approval review had reached its usage limit; the relevant tests passed previously. E02 is complete; E03 remains pending.
+
+## Backend E01 verification — 16 November 2026
+
+- Audited the existing normalization pipeline: EXIF orientation is applied, supported embedded ICC profiles convert to sRGB, and alpha is composited onto white before adjustments. The normalized working PNG is the source for preview, enhancement and export; invalid profiles return a safe client error.
+- Existing tests cover all eight orientations across JPEG/PNG/WebP, valid sRGB and invalid ICC profiles for each format, and transparent pixels composited onto white. No runtime changes or dependencies were needed. Tests were not rerun this turn because automatic approval review had reached its usage limit; these checks passed in a prior full backend suite. E01 is complete; E02 remains pending.
+
+## Backend D16 verification — 16 November 2026
+
+- Audited Studio replacement flow: the file is fully read/validated before `commit` changes the active photo, adjustment values, preset, compare mode or split. A failed load updates the error while retaining the existing image URL and editing state; successful commit revokes the previous local object URL.
+- Existing Playwright coverage uploads a valid photo, selects Vivid, tries a corrupt replacement, then verifies the visible error, retained filename and saturation value. The browser test was not rerun in this turn because automatic approval review had reached its usage limit. No code or dependencies were needed. D16 is complete; phase-G connection to backend upload remains pending.
+
+## Backend D15 verification — 16 November 2026
+
+- Audited existing session responses: a missing session, including in-memory state lost after restart, returns 404 `image_unavailable`; a correct token for a still-known expired session returns 410 `image_expired` and removes its files. Wrong credentials remain 401. Expiry also runs through the D11 periodic cleanup.
+- The existing ASGI test simulates restart loss and checks 404, then verifies wrong-token 401 versus correct-token 410 and file removal. No code or dependencies were needed. Tests were not rerun in this turn because automatic approval review had reached its usage limit; the existing regression was covered in the previously passing image/API suite. D15 is complete; D16 remains pending.
+
+## Backend D14 verification — 16 November 2026
+
+- Audited upload persistence: rejected files create no session files; storage writes both files inside a new session directory and removes that directory if either write fails. Preview and export outputs are in memory and create no intermediate files.
+- Added a regression test injecting failures after partial original-byte and normalized-PNG writes. It checks the generic 500 response, removal of the partial directory/session, and successful upload recovery. Existing tests cover invalid format/decode/size failures and normalized-write errors.
+- Tests were not run in this turn: the required elevated test command was rejected because automatic approval review reached its usage limit, so the new test remains unverified here. The full 98-test suite passed at D12. No runtime code or dependencies changed. D14 is complete by audit; D15 remains pending.
+
 ## Backend D13 verification — 14 November 2026
 
 - Audited the existing authenticated DELETE endpoint. It supports deleting an old image session after a replacement upload succeeds and closing the current session explicitly; deletion requires that session's bearer token and removes its files and record.
