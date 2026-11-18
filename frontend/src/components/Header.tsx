@@ -48,7 +48,7 @@ export function Header() {
         <Link to="/studio" className={styles.mobileCta} onClick={() => setOpen(false)}>Open Studio <ArrowUpRight size={16} /></Link>
       </nav>
       <Link to="/studio" className={`button primary ${styles.headerCta}`}>Open Studio <ArrowUpRight size={16} /></Link>
-      <button ref={trigger} className={styles.menu} onClick={() => setOpen(!open)} aria-label={open ? 'Close menu' : 'Open menu'} aria-expanded={open} aria-controls="site-nav"><span /><span /></button>
+      <button ref={trigger} className={styles.menu} onClick={event => { event.currentTarget.focus(); setOpen(!open) }} aria-label={open ? 'Close menu' : 'Open menu'} aria-expanded={open} aria-controls="site-nav"><span /><span /></button>
     </div>
   </header>
 }

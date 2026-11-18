@@ -24,6 +24,22 @@ class PrivateImageCache:
         await self.app(scope, receive, no_store)
 
 
+class SecurityHeaders:
+    def __init__(self, app: ASGIApp):
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        async def secure(message: Message) -> None:
+            if message["type"] == "http.response.start":
+                headers = MutableHeaders(scope=message)
+                headers["X-Content-Type-Options"] = "nosniff"
+                headers["X-Frame-Options"] = "DENY"
+                headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+            await send(message)
+
+        await self.app(scope, receive, secure if scope["type"] == "http" else send)
+
+
 def with_cors(app: ASGIApp, origins: tuple[str, ...]) -> ASGIApp:
     if not origins:
         return app

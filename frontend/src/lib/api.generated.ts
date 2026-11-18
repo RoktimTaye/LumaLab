@@ -1,5 +1,5 @@
 // Generated from backend OpenAPI; run npm run contracts:generate. Do not edit.
-// Schema SHA-256: 3d44015a9bded072a3daea745d4124d22116399700bf4cadd1d47e874702071a
+// Schema SHA-256: b92c5271a8cfcaa1909d3d48663cc0866b72a3c4f4c1a91d26aec8641eb1ab09
 export interface components {
   schemas: {
     "Adjustments": { "brightness": number; "contrast": number; "saturation": number; "warmth": number; "sharpness": number; "vignette": number };
@@ -35,7 +35,7 @@ export interface paths {
         "413": { headers: { "Cache-Control"?: "no-store" }; content: { "application/json": components["schemas"]["ErrorResponse"] } };
         "415": { headers: { "Cache-Control"?: "no-store" }; content: { "application/json": components["schemas"]["ErrorResponse"] } };
         "422": { headers: { "Cache-Control"?: "no-store" }; content: { "application/json": components["schemas"]["ErrorResponse"] } };
-        "429": { headers: { "Cache-Control"?: "no-store" }; content: { "application/json": components["schemas"]["ErrorResponse"] } };
+        "429": { headers: { "Cache-Control"?: "no-store"; "Retry-After"?: number }; content: { "application/json": components["schemas"]["ErrorResponse"] } };
         "500": { headers: { "Cache-Control"?: "no-store" }; content: { "application/json": components["schemas"]["ErrorResponse"] } };
         "503": { headers: { "Cache-Control"?: "no-store" }; content: { "application/json": components["schemas"]["ErrorResponse"] } };
       };
@@ -51,7 +51,7 @@ export interface paths {
         "404": { headers: { "Cache-Control"?: "no-store" }; content: { "application/json": components["schemas"]["ErrorResponse"] } };
         "410": { headers: { "Cache-Control"?: "no-store" }; content: { "application/json": components["schemas"]["ErrorResponse"] } };
         "422": { headers: { "Cache-Control"?: "no-store" }; content: { "application/json": components["schemas"]["ErrorResponse"] } };
-        "429": { headers: { "Cache-Control"?: "no-store" }; content: { "application/json": components["schemas"]["ErrorResponse"] } };
+        "429": { headers: { "Cache-Control"?: "no-store"; "Retry-After"?: number }; content: { "application/json": components["schemas"]["ErrorResponse"] } };
         "500": { headers: { "Cache-Control"?: "no-store" }; content: { "application/json": components["schemas"]["ErrorResponse"] } };
         "503": { headers: { "Cache-Control"?: "no-store" }; content: { "application/json": components["schemas"]["ErrorResponse"] } };
       };
@@ -67,7 +67,7 @@ export interface paths {
         "404": { headers: { "Cache-Control"?: "no-store" }; content: { "application/json": components["schemas"]["ErrorResponse"] } };
         "410": { headers: { "Cache-Control"?: "no-store" }; content: { "application/json": components["schemas"]["ErrorResponse"] } };
         "422": { headers: { "Cache-Control"?: "no-store" }; content: { "application/json": components["schemas"]["ErrorResponse"] } };
-        "429": { headers: { "Cache-Control"?: "no-store" }; content: { "application/json": components["schemas"]["ErrorResponse"] } };
+        "429": { headers: { "Cache-Control"?: "no-store"; "Retry-After"?: number }; content: { "application/json": components["schemas"]["ErrorResponse"] } };
         "500": { headers: { "Cache-Control"?: "no-store" }; content: { "application/json": components["schemas"]["ErrorResponse"] } };
         "503": { headers: { "Cache-Control"?: "no-store" }; content: { "application/json": components["schemas"]["ErrorResponse"] } };
       };
@@ -84,7 +84,7 @@ export interface paths {
         "404": { headers: { "Cache-Control"?: "no-store" }; content: { "application/json": components["schemas"]["ErrorResponse"] } };
         "410": { headers: { "Cache-Control"?: "no-store" }; content: { "application/json": components["schemas"]["ErrorResponse"] } };
         "422": { headers: { "Cache-Control"?: "no-store" }; content: { "application/json": components["schemas"]["ErrorResponse"] } };
-        "429": { headers: { "Cache-Control"?: "no-store" }; content: { "application/json": components["schemas"]["ErrorResponse"] } };
+        "429": { headers: { "Cache-Control"?: "no-store"; "Retry-After"?: number }; content: { "application/json": components["schemas"]["ErrorResponse"] } };
         "500": { headers: { "Cache-Control"?: "no-store" }; content: { "application/json": components["schemas"]["ErrorResponse"] } };
         "503": { headers: { "Cache-Control"?: "no-store" }; content: { "application/json": components["schemas"]["ErrorResponse"] } };
       };
@@ -100,7 +100,7 @@ export interface paths {
         "404": { headers: { "Cache-Control"?: "no-store" }; content: { "application/json": components["schemas"]["ErrorResponse"] } };
         "410": { headers: { "Cache-Control"?: "no-store" }; content: { "application/json": components["schemas"]["ErrorResponse"] } };
         "422": { headers: { "Cache-Control"?: "no-store" }; content: { "application/json": components["schemas"]["ErrorResponse"] } };
-        "429": { headers: { "Cache-Control"?: "no-store" }; content: { "application/json": components["schemas"]["ErrorResponse"] } };
+        "429": { headers: { "Cache-Control"?: "no-store"; "Retry-After"?: number }; content: { "application/json": components["schemas"]["ErrorResponse"] } };
         "500": { headers: { "Cache-Control"?: "no-store" }; content: { "application/json": components["schemas"]["ErrorResponse"] } };
         "503": { headers: { "Cache-Control"?: "no-store" }; content: { "application/json": components["schemas"]["ErrorResponse"] } };
       };
@@ -117,7 +117,7 @@ export interface paths {
         "404": { headers: { "Cache-Control"?: "no-store" }; content: { "application/json": components["schemas"]["ErrorResponse"] } };
         "410": { headers: { "Cache-Control"?: "no-store" }; content: { "application/json": components["schemas"]["ErrorResponse"] } };
         "422": { headers: { "Cache-Control"?: "no-store" }; content: { "application/json": components["schemas"]["ErrorResponse"] } };
-        "429": { headers: { "Cache-Control"?: "no-store" }; content: { "application/json": components["schemas"]["ErrorResponse"] } };
+        "429": { headers: { "Cache-Control"?: "no-store"; "Retry-After"?: number }; content: { "application/json": components["schemas"]["ErrorResponse"] } };
         "500": { headers: { "Cache-Control"?: "no-store" }; content: { "application/json": components["schemas"]["ErrorResponse"] } };
         "503": { headers: { "Cache-Control"?: "no-store" }; content: { "application/json": components["schemas"]["ErrorResponse"] } };
       };

@@ -16,7 +16,7 @@ COPY --from=frontend /build/frontend/dist ./frontend/dist
 WORKDIR /app/backend
 ENV PATH="/app/backend/.venv/bin:$PATH"
 ENV TEMP_IMAGE_DIR=/tmp/lumalab/images
-RUN mkdir -p /tmp/lumalab/images && chown -R 10001:10001 /app /tmp/lumalab
+RUN mkdir -p /tmp/lumalab/images && chmod 700 /tmp/lumalab/images && chown 10001:10001 /tmp/lumalab/images && chown -R 10001:10001 /app
 USER 10001:10001
 
-CMD ["sh", "-c", "exec uvicorn app.main:application --host 0.0.0.0 --port ${PORT:-8000} --workers 1"]
+CMD ["python", "-m", "app.deploy"]

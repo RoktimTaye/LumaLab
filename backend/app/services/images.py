@@ -4,9 +4,10 @@ from io import BytesIO
 from pathlib import Path
 import struct
 import warnings
+from math import ceil
 
 import numpy as np
-from PIL import Image, ImageCms, ImageEnhance, ImageFilter, ImageOps, UnidentifiedImageError
+from PIL import Image, ImageCms, ImageEnhance, ImageFilter, ImageOps, ImageStat, UnidentifiedImageError
 
 from app.config import Settings
 from app.schemas.images import Adjustments, Enhancement
@@ -59,32 +60,65 @@ def normalize(data: bytes, filename: str, settings: Settings) -> tuple[Image.Ima
 
 
 def render(path: Path, adjustments: Adjustments | None, settings: Settings, *, preview: bool, quality: int | None = None) -> bytes:
-    with Image.open(path) as source:
+    image = Image.open(path)
+    image.load()
+    if image.mode != "RGB":
+        source = image
         image = source.convert("RGB")
+        source.close()
     if preview:
         image.thumbnail((settings.preview_max_edge, settings.preview_max_edge), Image.Resampling.LANCZOS)
     if adjustments is not None:
-        image = ImageEnhance.Brightness(image).enhance(adjustments.brightness / 100)
-        image = ImageEnhance.Contrast(image).enhance(adjustments.contrast / 100)
-        image = ImageEnhance.Color(image).enhance(adjustments.saturation / 100)
+        # Match Pillow's blend rounding using tiny lookup tables. Contrast uses
+        # the same global luminance mean as ImageEnhance.Contrast.
+        ramp = Image.frombytes("L", (256, 1), bytes(range(256)))
+        if adjustments.brightness != 100:
+            table = list(ImageEnhance.Brightness(ramp).enhance(adjustments.brightness / 100).get_flattened_data())
+            image = image.point(table * 3)
+        if adjustments.contrast != 100:
+            with image.convert("L") as gray:
+                mean = int(ImageStat.Stat(gray).mean[0] + .5)
+            table = list(Image.blend(Image.new("L", ramp.size, mean), ramp, adjustments.contrast / 100).get_flattened_data())
+            image = image.point(table * 3)
+        if adjustments.saturation != 100:
+            for top in range(0, image.height, 64):
+                with image.crop((0, top, image.width, min(top + 64, image.height))) as tile:
+                    image.paste(ImageEnhance.Color(tile).enhance(adjustments.saturation / 100), (0, top))
         if adjustments.warmth and adjustments.saturation:
-            pixels = np.asarray(image, dtype=np.float32).copy()
             shift = adjustments.warmth * 0.4
-            pixels[:, :, 0] += shift
-            pixels[:, :, 2] -= shift
-            image = Image.fromarray(np.clip(pixels, 0, 255).astype(np.uint8))
+            values = np.arange(256, dtype=np.float32)
+            red = np.clip(values + shift, 0, 255).astype(np.uint8).tolist()
+            blue = np.clip(values - shift, 0, 255).astype(np.uint8).tolist()
+            image = image.point(red + list(range(256)) + blue)
         if adjustments.sharpness:
-            image = image.filter(ImageFilter.UnsharpMask(
-                radius=max(0.5, max(image.size) / 1600), percent=adjustments.sharpness * 2, threshold=3,
-            ))
+            radius = max(0.5, max(image.size) / 1600)
+            # Read overlapping source tiles into a separate destination so each
+            # blur sees unchanged neighbours, including across tile boundaries.
+            halo = ceil(radius * 4) + 8
+            sharpened = Image.new("RGB", image.size)
+            for top in range(0, image.height, 64):
+                bottom = min(top + 64, image.height)
+                start, stop = max(0, top - halo), min(image.height, bottom + halo)
+                with image.crop((0, start, image.width, stop)) as tile:
+                    filtered = tile.filter(ImageFilter.UnsharpMask(radius=radius, percent=adjustments.sharpness * 2, threshold=3))
+                    sharpened.paste(filtered.crop((0, top - start, image.width, bottom - start)), (0, top))
+            image.close()
+            image = sharpened
         if adjustments.vignette:
             width, height = image.size
-            y, x = np.ogrid[-1:1:complex(height), -1:1:complex(width)]
-            mask = 1 - (adjustments.vignette / 100) * np.clip((x*x + y*y) / 2, 0, 1) * 0.7
-            pixels = np.asarray(image, dtype=np.float32) * mask[:, :, None]
-            image = Image.fromarray(np.clip(pixels, 0, 255).astype(np.uint8))
+            # Preserve global coordinates and float64 rounding, but bound the
+            # working arrays to 64 rows instead of allocating full-frame floats.
+            x = np.linspace(-1, 1, width)[None, :]
+            y = np.linspace(-1, 1, height)[:, None]
+            for top in range(0, height, 64):
+                bottom = min(top + 64, height)
+                mask = 1 - (adjustments.vignette / 100) * np.clip((x*x + y[top:bottom]*y[top:bottom]) / 2, 0, 1) * 0.7
+                with image.crop((0, top, width, bottom)) as tile:
+                    pixels = np.asarray(tile, dtype=np.float32) * mask[:, :, None]
+                    image.paste(Image.fromarray(np.clip(pixels, 0, 255).astype(np.uint8)), (0, top))
     output = BytesIO()
     image.save(output, format="JPEG", quality=settings.jpeg_quality if quality is None else quality)
+    image.close()
     return output.getvalue()
 
 

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './fixtures'
 
 test('JPEG response blobs display, download and release their object URLs', async ({ page }) => {
   await page.goto('/studio')

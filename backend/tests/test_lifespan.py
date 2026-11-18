@@ -35,6 +35,9 @@ class LifespanTests(unittest.TestCase):
             database_url="postgresql://test:private-test-password@db.invalid/lumalab?sslmode=require",
             temp_image_dir=self.test_root / "images",
         )
+        readiness = patch("app.lifespan.validate_database")
+        self.validate_database = readiness.start()
+        self.addCleanup(readiness.stop)
         self.app = FastAPI(lifespan=lifespan)
         self.app.state.settings = self.settings
 
@@ -88,6 +91,18 @@ class LifespanTests(unittest.TestCase):
                 self.assertIsNone(self.app.state.db_pool)
                 self.assertIsNone(self.app.state.storage_dir)
 
+        asyncio.run(check())
+
+    def test_database_readiness_failure_releases_pool_and_storage(self):
+        self.validate_database.side_effect = RuntimeError("Database is not ready; migrate and seed.")
+        async def check():
+            with patch("app.lifespan.database_pool") as factory:
+                with self.assertRaisesRegex(RuntimeError, "migrate and seed"):
+                    async with lifespan(self.app):
+                        self.fail("Unready database must prevent startup")
+                factory.return_value.__exit__.assert_called_once()
+                self.assertIsNone(self.app.state.image_store)
+                self.assertEqual(list(self.settings.temp_image_dir.iterdir()), [])
         asyncio.run(check())
 
     def test_failed_pool_startup_closes_pool_and_removes_directory(self):

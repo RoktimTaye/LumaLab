@@ -87,7 +87,7 @@ export function Studio() {
     resetImageMutationState()
   }, [])
   useEffect(() => {
-    if (modal) { lastTrigger.current = document.activeElement as HTMLElement; dialog.current?.showModal() }
+    if (modal) { lastTrigger.current ??= document.activeElement as HTMLElement; dialog.current?.showModal() }
     else { dialog.current?.close(); lastTrigger.current?.focus(); lastTrigger.current = null }
   }, [modal])
   useEffect(() => { document.title = 'Editing Studio — LumaLab'; return () => { document.title = 'LumaLab — Light. Colour. Create.' } }, [])
@@ -327,7 +327,7 @@ export function Studio() {
   const dirty = Object.entries(values).some(([key,value]) => value !== NEUTRAL[key as keyof Adjustments])
 
   return <div className={styles.studio}>
-    <header className={styles.header}><Brand /><div className={styles.breadcrumb}><ChevronRight size={12} /><span>Editing Studio</span><span className={styles.version}>V.01</span></div><div className={styles.headerActions}><Link to="/" className={styles.backLink}><ArrowLeft size={14} /> Back to home</Link><button className="button primary" disabled={!photo || loading || !previewReady || exportMutation.isPending} onClick={() => setModal('export')}><Download size={15} /><span>{exportMutation.isPending ? 'Exporting…' : 'Export image'}</span></button></div></header>
+    <header className={styles.header}><Brand /><div className={styles.breadcrumb}><ChevronRight size={12} /><span>Editing Studio</span><span className={styles.version}>V.01</span></div><div className={styles.headerActions}><Link to="/" className={styles.backLink}><ArrowLeft size={14} /> Back to home</Link><button className="button primary" disabled={!photo || loading || !previewReady || exportMutation.isPending} onClick={event => { lastTrigger.current = event.currentTarget; setModal('export') }}><Download size={15} /><span>{exportMutation.isPending ? 'Exporting…' : 'Export image'}</span></button></div></header>
     <div className={styles.previewNotice}><Info size={13} /><span>Your photograph is uploaded securely for editing and export. The original remains untouched.</span><span className={styles.localBadge}><span className="status-dot" /> PRIVATE SESSION</span></div>
     <input ref={fileInput} type="file" className="sr-only" tabIndex={-1} aria-label="Photograph file" accept=".jpg,.jpeg,.png,.webp" onChange={e => { const file = e.target.files?.[0]; if (file) void upload(file); e.target.value = '' }} />
     <main id="main" className={styles.workspace}>
@@ -345,7 +345,7 @@ export function Studio() {
           }
           return <button key={preset.preset_id} disabled={!photo} aria-pressed={activePreset === preset.preset_name} className={`${styles.preset} ${activePreset === preset.preset_name && photo ? styles.activePreset : ''}`} onClick={() => { invalidateEditedWork(); enhancementFeedback.current = ''; setPreviewReady(false); setValues(presetValues); setActivePreset(preset.preset_name); setStatus(`${preset.preset_name} preset applied.`) }}><img src={photo?.previewUrl || '/images/alpine.jpg'} alt="" style={{filter:`saturate(${preset.saturation / 100}) contrast(${preset.contrast / 100}) sepia(${preset.warmth > 0 ? .35 : 0})`}}/><span><strong>{preset.preset_name}</strong><small>{preset.description}</small></span>{activePreset === preset.preset_name && photo ? <Check size={14}/> : <span className={styles.presetNumber}>0{index+1}</span>}</button>
         })}</div></div>
-        <div className={styles.enhanceSection}><div><Sparkles size={17}/><span>A little assistance</span></div><p>A balanced starting point, with you in control.</p><button className="button secondary" disabled={!photo || loading || enhancementMutation.isPending} onClick={() => setModal('enhance')}><Sparkles size={14}/>{enhancementMutation.isPending ? 'Analyzing…' : 'Auto Enhance'}<ArrowUpRight size={14}/></button></div>
+        <div className={styles.enhanceSection}><div><Sparkles size={17}/><span>A little assistance</span></div><p>A balanced starting point, with you in control.</p><button className="button secondary" disabled={!photo || loading || enhancementMutation.isPending} onClick={event => { lastTrigger.current = event.currentTarget; setModal('enhance') }}><Sparkles size={14}/>{enhancementMutation.isPending ? 'Analyzing…' : 'Auto Enhance'}<ArrowUpRight size={14}/></button></div>
         <div className={styles.preserveNote}><ShieldCheck size={14}/><span>Your original stays untouched.</span></div>
       </aside>
 

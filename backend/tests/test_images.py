@@ -2,6 +2,7 @@
 
 import asyncio
 from base64 import urlsafe_b64decode
+from colorsys import hsv_to_rgb
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 from io import BytesIO
@@ -15,7 +16,7 @@ from unittest.mock import patch
 import warnings
 
 from fastapi import FastAPI, Response
-from PIL import Image, ImageCms, PngImagePlugin
+from PIL import Image, ImageChops, ImageCms, ImageStat, PngImagePlugin
 
 from app.config import RUNTIME_DIR, Settings
 from app.errors import EXCEPTION_HANDLERS
@@ -143,6 +144,7 @@ class ImageTests(unittest.TestCase):
                 exif = Image.Exif()
                 exif[274] = 6
                 exif[270] = "original-upload-description"
+                exif[34853] = {1: "N", 2: (37.0, 45.0, 0.0), 3: "W", 4: (122.0, 25.0, 0.0)}
                 image = Image.new("RGB" if format_name == "JPEG" else "RGBA", (80, 40), (120, 80, 40))
                 image.save(output, format_name, exif=exif, icc_profile=profile)
                 uploaded = output.getvalue()
@@ -159,6 +161,7 @@ class ImageTests(unittest.TestCase):
                     self.assertEqual((preserved.format, preserved.size), (format_name, (80, 40)))
                     self.assertEqual(preserved.getexif()[274], 6)
                     self.assertEqual(preserved.getexif()[270], "original-upload-description")
+                    self.assertEqual(preserved.getexif().get_ifd(34853)[2][0], 37.0)
                     self.assertEqual(preserved.info["icc_profile"], profile)
                 path, token = "/api/v1/images/" + session["image_id"], session["access_token"]
                 adjusted = {**NEUTRAL, "brightness": 150, "warmth": 15}
@@ -176,6 +179,9 @@ class ImageTests(unittest.TestCase):
                     self.assertEqual(status, 200)
                     if suffix in ("/original-preview", "/preview"):
                         previews.append(result)
+                    if suffix == "/export":
+                        with Image.open(BytesIO(result)) as exported:
+                            self.assertFalse(exported.getexif())
                     self.assertEqual(original.read_bytes(), uploaded)
                     self.assertEqual(normalized.read_bytes(), baseline)
                 self.assertNotEqual(previews[0], previews[1])
@@ -220,7 +226,7 @@ class ImageTests(unittest.TestCase):
                 self.assertEqual(directory, root / session["image_id"])
                 self.assertNotIn(directory, directories)
                 self.assertEqual(session["filename"], filename.replace("\\", "/").rsplit("/", 1)[-1])
-                self.assertEqual({file.name for file in directory.iterdir()}, {"original", "normalized.png"})
+                self.assertEqual({file.name for file in directory.iterdir()}, {"original", "normalized.png", "preview.png", "analysis.png"})
                 directories.add(directory)
                 self.assertEqual(set(root.iterdir()), directories)
                 for existing in directories:
@@ -248,7 +254,7 @@ class ImageTests(unittest.TestCase):
                 session["access_token"])
             self.assertEqual(status, 200)
             self.assertTrue(result.startswith(b"\xff\xd8"))
-        self.assertEqual({file.name for file in stored.directory.iterdir()}, {"original", "normalized.png"})
+        self.assertEqual({file.name for file in stored.directory.iterdir()}, {"original", "normalized.png", "preview.png", "analysis.png"})
 
     def test_cleanup_and_deletion_wait_for_active_image_use(self):
         store = self.app.state.image_store
@@ -280,6 +286,36 @@ class ImageTests(unittest.TestCase):
                 self.assertFalse(directory.exists())
                 self.assertNotIn(image_id, store.sessions)
 
+    def test_preview_can_complete_while_same_session_export_is_running(self):
+        from app.services.images import render as actual_render
+        session = json.loads(self.upload()[2])
+        path = f'/api/v1/images/{session["image_id"]}'
+        started, release = Event(), Event()
+        results = []
+
+        def slow_export(*args, **kwargs):
+            if not kwargs["preview"]:
+                started.set()
+                if not release.wait(5):
+                    raise RuntimeError("Export test timed out")
+            return actual_render(*args, **kwargs)
+
+        def export_request():
+            results.append(self.request("POST", path + "/export",
+                json.dumps({"adjustments": NEUTRAL}).encode(), "application/json", session["access_token"])[0])
+
+        with patch("app.routes.images.render", side_effect=slow_export):
+            worker = Thread(target=export_request)
+            worker.start()
+            try:
+                self.assertTrue(started.wait(2))
+                self.assertEqual(self.request("GET", path + "/original-preview", token=session["access_token"])[0], 200)
+                self.assertEqual(self.upload()[0], 429)
+            finally:
+                release.set()
+                worker.join(timeout=3)
+        self.assertEqual(results, [200])
+
     def test_authorization_validation_expiry_and_capacity(self):
         session = json.loads(self.upload()[2])
         path = "/api/v1/images/" + session["image_id"]
@@ -296,6 +332,9 @@ class ImageTests(unittest.TestCase):
             store.processing.release()
         store.sessions[session["image_id"]].expires_at = datetime.now(timezone.utc) - timedelta(seconds=1)
         self.assertEqual(self.request("GET", path + "/original-preview", token=session["access_token"])[0], 410)
+        self.assertNotIn(session["image_id"], store.sessions)
+        self.assertEqual(store.stored_bytes, 0)
+        self.assertEqual(self.request("GET", path + "/original-preview", token=session["access_token"])[0], 404)
 
     def test_upload_time_and_expiry_are_fixed_for_sixty_minutes(self):
         before = datetime.now(timezone.utc)
@@ -1071,6 +1110,53 @@ class ImageTests(unittest.TestCase):
         self.assertEqual(status, 500)
         self.assertNotIn(b"private-", error)
         self.assertEqual(self.request("POST", path, body, "application/json", session["access_token"])[0], 200)
+
+    def test_authoritative_preview_matches_resized_full_resolution_export(self):
+        settings = self.app.state.settings.model_copy(update={"preview_max_edge": 1600})
+        self.app.state.settings = settings
+        self.app.state.image_store.settings = settings
+        image = Image.effect_noise((2400, 1600), 45).convert("RGB")
+        output = BytesIO()
+        image.save(output, "JPEG", quality=95)
+        session = json.loads(self.upload(output.getvalue(), "comparison.jpg")[2])
+        path = f'/api/v1/images/{session["image_id"]}'
+        adjustments = {"brightness": 108, "contrast": 115, "saturation": 120,
+                       "warmth": 12, "sharpness": 24, "vignette": 18}
+        token = session["access_token"]
+        status, _, preview_bytes = self.request("POST", path + "/preview",
+            json.dumps({"revision": 1, "adjustments": adjustments}).encode(), "application/json", token)
+        export_status, _, export_bytes = self.request("POST", path + "/export",
+            json.dumps({"adjustments": adjustments, "format": "jpeg", "quality": 92}).encode(),
+            "application/json", token)
+        self.assertEqual((status, export_status), (200, 200))
+        with Image.open(BytesIO(preview_bytes)) as preview, Image.open(BytesIO(export_bytes)) as exported:
+            self.assertEqual(preview.size, (1600, 1067))
+            self.assertEqual(exported.size, (2400, 1600))
+            resized = exported.resize(preview.size, Image.Resampling.LANCZOS)
+            difference = sum(ImageStat.Stat(ImageChops.difference(preview.convert("RGB"), resized)).mean) / 3
+        self.assertLess(difference, 8.0)
+        self.assertEqual(self.request("DELETE", path, token=token)[0], 204)
+
+    def test_auto_enhancement_keeps_a_balanced_image_near_neutral(self):
+        image = Image.new("RGB", (512, 256))
+        for y in range(image.height):
+            hue = (y % 6) / 6
+            value = 0.25 + (y // 6) / 58
+            color = tuple(round(channel * 255) for channel in hsv_to_rgb(hue, 90 / 255, value))
+            image.paste(color, (0, y, image.width, y + 1))
+        output = BytesIO()
+        image.save(output, "PNG")
+        session = json.loads(self.upload(output.getvalue(), "balanced.png")[2])
+        status, _, body = self.request("POST", f'/api/v1/images/{session["image_id"]}/enhance',
+                                       token=session["access_token"])
+        self.assertEqual(status, 200)
+        values = Enhancement.model_validate_json(body).adjustments
+        self.assertLessEqual(abs(values.brightness - 100), 2)
+        self.assertGreaterEqual(values.contrast, 90)
+        self.assertLessEqual(values.contrast, 110)
+        self.assertLessEqual(abs(values.saturation - 100), 1)
+        self.assertLessEqual(abs(values.warmth), 1)
+        self.assertEqual((values.sharpness, values.vignette), (0, 0))
 
 
 if __name__ == "__main__":

@@ -87,9 +87,9 @@ from app.logging import configure_logging
 from app.lifespan import lifespan
 configure_logging()
 app = FastAPI()
-app.state.settings = SimpleNamespace(temp_image_dir='C:/private/photo.jpg', image_ttl_seconds=3600, cleanup_interval_seconds=300)
+app.state.settings = SimpleNamespace(temp_image_dir='C:/private/photo.jpg', image_ttl_seconds=3600, cleanup_interval_seconds=300, database_timeout_seconds=1)
 async def check():
-    with patch('app.lifespan.temporary_storage'), patch('app.lifespan.database_pool'):
+    with patch('app.lifespan.temporary_storage'), patch('app.lifespan.database_pool'), patch('app.lifespan.validate_database'):
         async with lifespan(app):
             pass
     with patch('app.lifespan.temporary_storage', side_effect=RuntimeError('Bearer secret-token')):

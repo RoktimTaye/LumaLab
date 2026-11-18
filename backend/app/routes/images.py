@@ -61,14 +61,17 @@ class ImageRoute(APIRoute):
                     client = request.client.host if request.client else "unknown"
                     if limiter is not None and not limiter.allow(client):
                         raise ImageError(429, "upload_rate_exceeded", "Upload limit reached. Wait one minute before uploading again.", retry_after=60)
-                if not store.processing.acquire(blocking=False):
+                permit = (store.processing if self.name in {"upload", "export"} else
+                          None if self.name == "delete" else store.previews)
+                if permit is not None and not permit.acquire(blocking=False):
                     raise ImageError(429, "capacity_exceeded", "Image processing is busy. Wait a moment, then try again.", retry_after=1)
                 try:
                     if self.name == "upload" and request.method == "POST":
                         request = bounded_upload(request, request.app.state.settings.max_upload_bytes)
                     response = await handler(request)
                 finally:
-                    store.processing.release()
+                    if permit is not None:
+                        permit.release()
                 response.headers["Cache-Control"] = "no-store"
                 return response
             except RequestValidationError as caught:
@@ -126,7 +129,7 @@ def upload(request: Request, file: UploadFile):
             responses={**SESSION_ERRORS, 200: JPEG_RESPONSE})
 def original_preview(image_id: str, request: Request, token: Token):
     with request.app.state.image_store.authorized(image_id, token) as session:
-        data = render(session.directory / "normalized.png", None, request.app.state.settings, preview=True)
+        data = render(session.directory / "preview.png", None, request.app.state.settings, preview=True)
     return Response(data, media_type="image/jpeg")
 
 
@@ -137,7 +140,7 @@ def original_preview(image_id: str, request: Request, token: Token):
              }}})
 def preview(image_id: str, body: PreviewRequest, request: Request, token: Token):
     with request.app.state.image_store.authorized(image_id, token) as session:
-        data = render(session.directory / "normalized.png", body.adjustments, request.app.state.settings, preview=True)
+        data = render(session.directory / "preview.png", body.adjustments, request.app.state.settings, preview=True)
     return Response(data, media_type="image/jpeg", headers={"X-Image-Revision": str(body.revision)})
 
 
@@ -146,7 +149,7 @@ def preview(image_id: str, body: PreviewRequest, request: Request, token: Token)
              responses={**SESSION_ERRORS, 200: {"headers": CACHE_HEADERS}})
 def automatic_enhancement(image_id: str, request: Request, token: Token):
     with request.app.state.image_store.authorized(image_id, token) as session:
-        return enhance(session.directory / "normalized.png")
+        return enhance(session.directory / "analysis.png")
 
 
 @router.post("/{image_id}/export", response_class=Response,

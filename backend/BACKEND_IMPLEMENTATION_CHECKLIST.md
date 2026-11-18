@@ -1,7 +1,7 @@
 # LumaLab — Remaining Backend and API Integration Work
 
 **Updated:** 16 November 2026
-**Status:** A01–A08, B01–B11, C01–C12, D01–D16, E01–E14, F01–F06, G01–G19 and H01–H09 verified. Studio API wiring remains in progress.
+**Status:** A01–A08, B01–B11, C01–C12, D01–D16, E01–E14, F01–F06, G01–G19 and H01–H13 verified. Studio API wiring remains in progress.
 **Target:** Complete the MVP upload → edit → enhance → compare → download workflow.  
 **Database decision:** Neon PostgreSQL replaces the SQLite database specified in the original PRD.
 
@@ -393,10 +393,10 @@ Preset application copies a preset's full values into editor state and calls the
 - [x] H07 — Serve the production frontend and `/api/v1` under one origin through FastAPI or a reverse proxy.
 - [x] H08 — Configure SPA fallback for `/studio` without intercepting API, documentation, or missing asset responses.
 - [x] H09 — Configure HTTPS and suitable request-size/time limits when hosted beyond the local machine.
-- [ ] H10 — Configure private writable temporary storage and cleanup for the selected host. Do not assume ephemeral hosting storage provides durable sessions.
-- [ ] H11 — Run one backend process initially. Revisit session sharing and storage coordination before adding workers/instances.
-- [ ] H12 — Exclude `.env`, backend virtual environments, caches, runtime images, temporary files, and generated private artifacts from Git.
-- [ ] H13 — Document Neon network dependence and clear recovery behaviour when the database or image service is unreachable.
+- [x] H10 — Configure private writable temporary storage and cleanup for the selected host. Do not assume ephemeral hosting storage provides durable sessions.
+- [x] H11 — Run one backend process initially. Revisit session sharing and storage coordination before adding workers/instances.
+- [x] H12 — Exclude `.env`, backend virtual environments, caches, runtime images, temporary files, and generated private artifacts from Git.
+- [x] H13 — Document Neon network dependence and clear recovery behaviour when the database or image service is unreachable.
 
 Configuration to define and document (names below are proposed; keep final names consistent):
 
@@ -434,31 +434,41 @@ Use example placeholders in tracked configuration. Supply real Neon credentials 
 
 **H09 evidence (16 November 2026):** Added a root Dockerfile for Railway that builds the frontend and backend together, binds Uvicorn to Railway's injected `PORT`, and keeps a single backend worker; `.dockerignore` excludes local secrets, virtual environments, caches, and built assets from the build context. Railway public networking enforces HTTPS/TLS 1.2+ and HTTP-to-HTTPS redirects, a five-minute upload-body deadline, a five-minute no-data timeout, and a 15-minute request ceiling while data continues. The backend already enforces its 10,065,536-byte multipart request cap before parsing. Documented the Railway setup and limits in `frontend/README.md`. No provider project was modified and no tests or image build were run. Railway's domain still needs to be generated in service settings; maximum-size image processing should be checked against the five-minute idle timeout after deployment.
 
+**H10 evidence (16 November 2026):** Configured the Railway image to use `/tmp/lumalab/images`, a writable directory owned by the non-root app user and restricted to mode `0700`; each process run uses its own restricted directory. Existing cleanup deletes expired sessions every five minutes, removes the current run on graceful shutdown, and removes stale runs older than the one-hour TTL at startup. The app keeps session records and tokens in process memory, so a restart makes prior sessions unavailable; the temporary images are deliberately not attached to a persistent Railway volume. Documented the volatility and recovery behavior. The connected Railway account has no projects, so no live service or volume settings were changed. Tests and container build were not run.
+
+**H11 evidence (16 November 2026):** Both launch paths explicitly use one Uvicorn worker, including the Railway container command. Documented that the Railway service should remain at one replica because image sessions, upload-rate state, the processing semaphore, and storage coordination are process-local. Scaling to more workers or instances requires shared session/storage coordination and distributed limits first. The connected Railway account has no project/service to configure; no live scale setting was changed. No code changes, tests, or container build were needed.
+
+**H12 evidence (16 November 2026):** Audited tracked paths and ignore rules. `backend/.gitignore` excludes `.env` files (while allowing `.env.example`), backend virtual environments, uv caches, Python caches, pytest cache, and `.runtime` image/session data. `frontend/.gitignore` excludes `node_modules`, build output, TypeScript build state, Playwright results/reports, and local environment files. Git's ignore check confirmed the secret/environment, cache, and runtime paths are ignored; tracked-path review found no real `.env`, private runtime image, or generated temp artifact. No ignore changes were needed. No tests were run.
+
+**H13 evidence (16 November 2026):** Documented that the configured pooled Neon connection is needed for preset reads and `/api/v1/health`; both return 503 on database/network failure, and the frontend displays the preset/service outage. Psycopg reconnect attempts retry in the background; after Neon/network recovery, reload the Studio or retry the affected request. Image operations use private process-local files and do not query Neon, so an existing session can continue during a database-only outage. Documented storage/service recovery and that restarts lose volatile sessions, requiring re-upload. Corrected stale README claims that presets and image editing were still frontend-local or that H03 limits remained outstanding. No runtime changes or dependencies were needed. Tests were not run.
+
 **Acceptance:** The application runs with documented configuration, keeps private data private, handles resource pressure predictably, and supports direct studio URLs in production.
 
 ### I. Testing, performance, and handoff
 
-- [ ] I01 — Add pytest coverage for schemas, upload checks, sessions, authorization, processing, enhancement, export, and cleanup.
-- [ ] I02 — Test PostgreSQL constraints, migrations, repeatable seeding, preset retrieval, and database failure handling against isolated test data.
-- [ ] I03 — Create fixtures for JPEG/PNG/WebP, transparency, EXIF rotation, grayscale, supported colour profiles, corruption, animation, multi-frame inputs, and supported-limit cases.
-- [ ] I04 — Test exact byte/pixel/side boundaries and out-of-range/fractional adjustment rejection.
-- [ ] I05 — Verify that all six controls combine correctly and every preset replaces the complete state without accumulation.
-- [ ] I06 — Verify grayscale preservation, neutral settings, repeated enhancement, balanced-image results, and reset behaviour.
-- [ ] I07 — Verify missing/invalid tokens, cross-image token isolation, expiry, cleanup, and restart recovery.
-- [ ] I08 — Verify failed replacement preservation and rapid edits/replacements with out-of-order responses.
-- [ ] I09 — Compare authoritative previews against resized full-resolution exports for material brightness, colour, and effect differences.
-- [ ] I10 — Verify exported dimensions, JPEG format/quality settings, safe filenames, white transparency handling, and removal of EXIF/GPS metadata.
-- [ ] I11 — Verify original uploaded bytes remain unchanged.
-- [ ] I12 — Add connected Playwright coverage for the full upload → edit → enhance → compare → download workflow, including explicit retry and unavailable-service cases.
-- [ ] I13 — Run relevant frontend unit tests, strict TypeScript checks, and the production build after integration.
-- [ ] I14 — Check Chrome, Firefox, Edge, and Safari where available; document versions and unavailable coverage honestly.
-- [ ] I15 — Check the required responsive widths, keyboard/touch input, focus, reduced motion, text enlargement, zoom/reflow, long filenames, and loading/error layouts.
-- [ ] I16 — Measure performance on a documented reference laptop with at least 8 GB RAM; record CPU, browser, image dimensions, timings, and memory/resource observations.
-- [ ] I17 — Verify reproducible setup from npm and uv lockfiles and check generated frontend contracts against OpenAPI.
-- [ ] I18 — Update README setup/run/build/test instructions, Neon configuration, migrations/seeding, temporary-storage cleanup, and deployment guidance.
-- [ ] I19 — Update API documentation, system architecture, MVP data model, and Level 0/Level 1 data-flow documentation to reflect Neon.
-- [ ] I20 — Produce the connected test/verification report, remaining limitations, and an upload-to-export demonstration.
-- [ ] I21 — Update the academic project documentation/report required by the original PRD with the final implemented architecture and measured results.
+- [x] I01 — Add pytest coverage for schemas, upload checks, sessions, authorization, processing, enhancement, export, and cleanup.
+- [x] I02 — Test PostgreSQL constraints, migrations, repeatable seeding, preset retrieval, and database failure handling against isolated test data.
+- [x] I03 — Create fixtures for JPEG/PNG/WebP, transparency, EXIF rotation, grayscale, supported colour profiles, corruption, animation, multi-frame inputs, and supported-limit cases.
+- [x] I04 — Test exact byte/pixel/side boundaries and out-of-range/fractional adjustment rejection.
+- [x] I05 — Verify that all six controls combine correctly and every preset replaces the complete state without accumulation.
+- [x] I06 — Verify grayscale preservation, neutral settings, repeated enhancement, balanced-image results, and reset behaviour.
+- [x] I07 — Verify missing/invalid tokens, cross-image token isolation, expiry, cleanup, and restart recovery.
+- [x] I08 — Verify failed replacement preservation and rapid edits/replacements with out-of-order responses.
+- [x] I09 — Compare authoritative previews against resized full-resolution exports for material brightness, colour, and effect differences.
+- [x] I10 — Verify exported dimensions, JPEG format/quality settings, safe filenames, white transparency handling, and removal of EXIF/GPS metadata.
+- [x] I11 — Verify original uploaded bytes remain unchanged.
+- [x] I12 — Add connected Playwright coverage for the full upload → edit → enhance → compare → download workflow, including explicit retry and unavailable-service cases.
+- [x] I13 — Run relevant frontend unit tests, strict TypeScript checks, and the production build after integration.
+- [x] I14 — Check Chrome, Firefox, Edge, and Safari where available; document versions and unavailable coverage honestly.
+- [x] I15 — Check the required responsive widths, keyboard/touch input, focus, reduced motion, text enlargement, zoom/reflow, long filenames, and loading/error layouts.
+- [x] I16 — Measure performance on a documented reference laptop with at least 8 GB RAM; record CPU, browser, image dimensions, timings, and memory/resource observations.
+- [x] I17 — Verify reproducible setup from npm and uv lockfiles and check generated frontend contracts against OpenAPI.
+- [x] I18 — Update README setup/run/build/test instructions, Neon configuration, migrations/seeding, temporary-storage cleanup, and deployment guidance.
+- [x] I19 — Update API documentation, system architecture, MVP data model, and Level 0/Level 1 data-flow documentation to reflect Neon.
+- [x] I20 — Produce the connected test/verification report, remaining limitations, and an upload-to-export demonstration.
+- [x] I21 — Update the academic project documentation/report required by the original PRD with the final implemented architecture and measured results.
+
+**I01–I21 evidence (16 November 2026):** Added pytest 9.2.0 as a locked development dependency and backend pytest discovery configuration. Final locked backend run passed 102 tests and 530 subtests; PostgreSQL integration evidence for migration/constraint/seed/retrieval checks is recorded above and in `frontend/VERIFICATION.md` (isolated Neon development branch only). Added image preview/export comparison, GPS EXIF removal, and balanced-image enhancement assertions. Frontend `npm ci` succeeded; 9 unit tests, strict TypeScript/production build and generated OpenAPI contract check passed. Connected Chrome 157 and Edge 157 suites each passed all 12 Playwright tests, including 12 responsive sizes, unavailable-service retry, out-of-order preview and replacement handling, loading/error/long-name behavior, upload-to-export download and 12 MP/24 MP performance. Latest Chrome results: 910 ms home, 18.8 ms slider key-to-paint, 465 ms preview response after debounce, 1,304 ms enhance plus preview, 1,061 ms export and 2,730 ms 24 MP upload/preview. Hardware and both browser measurements are in `docs/PROJECT_REPORT.md`. Firefox and Safari/WebKit were unavailable and documented in `frontend/VERIFICATION.md`. Added Neon-aware architecture/data-flow docs, README updates, final project report and `frontend/screenshots/connected-workflow.png`. The originally referenced product PRD was not present in the checkout; the report records that limitation and follows the implementation checklist/source code. Desktop browser zoom and native renderer peak memory were not directly measured; 320 px zoom-sized reflow and Chrome/Edge JavaScript heap were recorded.
 
 Performance targets from the PRD; these are targets to measure, not guarantees:
 

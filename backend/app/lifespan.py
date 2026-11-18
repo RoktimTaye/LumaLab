@@ -8,6 +8,7 @@ import logging
 from fastapi import FastAPI
 
 from app.db.pool import database_pool
+from app.db.readiness import validate_database
 from app.storage.runtime import temporary_storage
 from app.storage.images import ImageStore
 
@@ -38,6 +39,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     try:
         with temporary_storage(settings.temp_image_dir, settings.image_ttl_seconds) as directory:
             with database_pool(settings) as pool:
+                try:
+                    await asyncio.to_thread(validate_database, pool, settings.database_timeout_seconds)
+                except RuntimeError:
+                    logger.error("database_readiness_failed_check_url_network_migrate_and_seed")
+                    raise
                 app.state.db_pool = pool
                 app.state.storage_dir = directory
                 app.state.image_store = ImageStore(directory, settings)
