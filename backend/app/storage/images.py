@@ -24,6 +24,8 @@ class Session:
     uploaded_at: datetime
     expires_at: datetime
     filename: str
+    width: int
+    height: int
     readers: int = 0
     retiring: bool = False
 
@@ -65,7 +67,7 @@ class ImageStore:
             self.stored_bytes += stored_bytes
             uploaded_at = datetime.now(timezone.utc)
             expires = uploaded_at + timedelta(seconds=self.settings.image_ttl_seconds)
-            self.sessions[image_id] = Session(directory, sha256(token.encode()).digest(), uploaded_at, expires, filename)
+            self.sessions[image_id] = Session(directory, sha256(token.encode()).digest(), uploaded_at, expires, filename, image.width, image.height)
             return UploadedImage(image_id=image_id, access_token=token, filename=filename,
                                  format=detected, width=image.width, height=image.height, expires_at=expires)
 

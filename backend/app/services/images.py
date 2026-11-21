@@ -10,7 +10,7 @@ import numpy as np
 from PIL import Image, ImageCms, ImageEnhance, ImageFilter, ImageOps, ImageStat, UnidentifiedImageError
 
 from app.config import Settings
-from app.schemas.images import Adjustments, Enhancement
+from app.schemas.images import Adjustments, Crop, Enhancement
 
 
 class ImageError(Exception):
@@ -59,13 +59,29 @@ def normalize(data: bytes, filename: str, settings: Settings) -> tuple[Image.Ima
         raise ImageError(422, "invalid_image", "Unable to decode this photograph.") from None
 
 
-def render(path: Path, adjustments: Adjustments | None, settings: Settings, *, preview: bool, quality: int | None = None) -> bytes:
+def render(path: Path, adjustments: Adjustments | None, settings: Settings, *, preview: bool, quality: int | None = None,
+           crop: Crop | None = None, original_size: tuple[int, int] | None = None) -> bytes:
+    # Validate before decoding or allocating cropped pixels. Never allow Pillow
+    # to pad out-of-bounds requests or allocate a caller-selected larger image.
+    if crop is not None:
+        if original_size is None or crop.x + crop.width > original_size[0] or crop.y + crop.height > original_size[1]:
+            raise ImageError(422, "invalid_crop", "Crop must stay inside the original photograph.")
     image = Image.open(path)
     image.load()
     if image.mode != "RGB":
         source = image
         image = source.convert("RGB")
         source.close()
+    if crop is not None:
+        width, height = original_size
+        left = min(image.width - 1, round(crop.x * image.width / width))
+        top = min(image.height - 1, round(crop.y * image.height / height))
+        right = min(image.width, max(left + 1, round((crop.x + crop.width) * image.width / width)))
+        bottom = min(image.height, max(top + 1, round((crop.y + crop.height) * image.height / height)))
+        if (left, top, right, bottom) != (0, 0, image.width, image.height):
+            source = image
+            image = source.crop((left, top, right, bottom))
+            source.close()
     if preview:
         image.thumbnail((settings.preview_max_edge, settings.preview_max_edge), Image.Resampling.LANCZOS)
     if adjustments is not None:

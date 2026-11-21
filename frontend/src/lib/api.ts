@@ -90,11 +90,12 @@ export async function getPreview(
   revision: number,
   adjustments: Adjustments,
   signal?: AbortSignal,
+  crop?: components['schemas']['Crop'] | null,
 ): Promise<{ blob: Blob; revision: string | null }> {
   const response = await request(`${imagePath(imageId)}/preview`, 'POST', {
     token,
     signal,
-    json: { revision, adjustments },
+    json: { revision, adjustments, crop },
   })
   return { blob: await response.blob(), revision: response.headers.get('X-Image-Revision') }
 }
@@ -109,11 +110,12 @@ export async function exportImage(
   token: string,
   adjustments: Adjustments,
   signal?: AbortSignal,
+  crop?: components['schemas']['Crop'] | null,
 ): Promise<{ blob: Blob; contentDisposition: string | null }> {
   const response = await request(`${imagePath(imageId)}/export`, 'POST', {
     token,
     signal,
-    json: { adjustments, format: 'jpeg', quality: 92 },
+    json: { adjustments, crop, format: 'jpeg', quality: 92 },
   })
   return { blob: await response.blob(), contentDisposition: response.headers.get('Content-Disposition') }
 }

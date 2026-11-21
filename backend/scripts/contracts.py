@@ -16,6 +16,11 @@ def fields(properties: dict, required: list) -> str:
 
 
 def ts_type(value: dict) -> str:
+    # Pydantic represents optional crop objects as a reference-or-null union.
+    if "anyOf" in value and len(value["anyOf"]) == 2:
+        members = value["anyOf"]
+        if members[1] == {"type": "null"} and "$ref" in members[0] and len(members[0]) == 1:
+            return f"{ts_type(members[0])} | null"
     if any(key in value for key in ("anyOf", "allOf", "oneOf", "not", "prefixItems", "patternProperties")):
         raise ValueError("Unsupported schema composition; review the contract generator.")
     if "$ref" in value:

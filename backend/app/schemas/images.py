@@ -16,15 +16,26 @@ class Adjustments(BaseModel):
     vignette: int = Field(ge=0, le=100)
 
 
+class Crop(BaseModel):
+    """Rectangle in oriented original-image pixels; bounds checked against the session."""
+    model_config = ConfigDict(strict=True, extra="forbid", frozen=True)
+    x: int = Field(ge=0, le=10_000)
+    y: int = Field(ge=0, le=10_000)
+    width: int = Field(ge=1, le=10_000)
+    height: int = Field(ge=1, le=10_000)
+
+
 class PreviewRequest(BaseModel):
     model_config = ConfigDict(strict=True, extra="forbid")
     revision: int = Field(ge=0, description="Client revision echoed in the X-Image-Revision response header.")
     adjustments: Adjustments
+    crop: Crop | None = None
 
 
 class ExportRequest(BaseModel):
     model_config = ConfigDict(strict=True, extra="forbid")
     adjustments: Adjustments
+    crop: Crop | None = None
     format: Literal["jpeg"] = "jpeg"
     quality: Literal[92] = 92
 

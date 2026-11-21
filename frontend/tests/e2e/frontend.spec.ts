@@ -21,7 +21,7 @@ test('home and studio reflow across the required viewport matrix', async ({ page
   expect(errors).toEqual([])
 })
 
-test('presets, keyboard controls, comparison and reset preserve the original', async ({ page }) => {
+test('presets, keyboard controls, comparison and reset preserve the original', async ({ page }, testInfo) => {
   await page.setViewportSize({width:1440,height:900})
   await page.goto('/studio')
   await page.getByRole('button', { name: 'Try a sample photograph' }).click()
@@ -45,7 +45,7 @@ test('presets, keyboard controls, comparison and reset preserve the original', a
   await expect(page.getByText('Auto Enhanced', {exact:true})).toBeVisible()
   await expect(page.getByRole('button', {name:'Export image'})).toBeEnabled()
   await page.getByRole('button', {name:'Compare',exact:true}).click()
-  await page.screenshot({path:'screenshots/connected-workflow.png',fullPage:true})
+  await page.screenshot({path:testInfo.outputPath('connected-workflow.png'),fullPage:true})
   await page.getByRole('button', {name:'Compare',exact:true}).click()
   await page.getByRole('button', {name:'Export image'}).click()
   await expect(page.getByRole('dialog')).toBeVisible()
@@ -235,19 +235,19 @@ test('accessible landmarks, names and contrast on home and populated studio', as
   }
 })
 
-test('capture desktop and phone views', async ({ page }) => {
+test('capture desktop and phone views', async ({ page }, testInfo) => {
   await page.setViewportSize({width:1440,height:1000})
   await page.goto('/')
   await page.evaluate(() => document.fonts.ready)
-  await page.screenshot({path:'screenshots/home-desktop.png',fullPage:true})
+  await page.screenshot({path:testInfo.outputPath('home-desktop.png'),fullPage:true})
   await page.goto('/studio')
-  await page.screenshot({path:'screenshots/studio-empty.png',fullPage:true})
+  await page.screenshot({path:testInfo.outputPath('studio-empty.png'),fullPage:true})
   await page.getByRole('button', {name:'Try a sample photograph'}).click()
   await page.getByRole('button', {name:/Cinematic/}).click()
   await page.getByRole('button', {name:'Compare',exact:true}).click()
-  await page.screenshot({path:'screenshots/studio-desktop.png',fullPage:true})
+  await page.screenshot({path:testInfo.outputPath('studio-desktop.png'),fullPage:true})
   await page.setViewportSize({width:390,height:844})
-  await page.screenshot({path:'screenshots/studio-mobile.png',fullPage:true})
+  await page.screenshot({path:testInfo.outputPath('studio-mobile.png'),fullPage:true})
   await page.goto('/')
-  await page.screenshot({path:'screenshots/home-mobile.png',fullPage:true})
+  await page.screenshot({path:testInfo.outputPath('home-mobile.png'),fullPage:true})
 })

@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState, type CSSProperties, type DragEvent } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { ArrowLeft, ArrowUpRight, Check, ChevronRight, Download, ImagePlus, Info, Layers, LoaderCircle, Maximize2, RotateCcw, ScanLine, ShieldCheck, SlidersHorizontal, Sparkles, Upload, X } from 'lucide-react'
+import { ArrowLeft, ArrowUpRight, Check, ChevronRight, Crop as CropIcon, Download, ImagePlus, Info, Layers, LoaderCircle, Maximize2, RotateCcw, ScanLine, ShieldCheck, SlidersHorizontal, Sparkles, Upload, X } from 'lucide-react'
 import { Brand } from '../components/Brand'
+import { CropEditor } from '../components/CropEditor'
+import type { Crop } from '../lib/crop'
 import { PhotoPreview } from '../components/PhotoPreview'
 import { CONTROL_GROUPS, loadPhoto, NEUTRAL, type Adjustments, type LocalPhoto } from '../lib/editor'
 import { ApiError, deleteImage, enhanceImage, exportImage, getOriginalPreview, getPresets, getPreview, uploadImage } from '../lib/api'
@@ -34,10 +36,13 @@ export function Studio() {
   })
   const uploadMutation = useMutation({ mutationFn: ({ file, signal }: { file: File; signal: AbortSignal }) => uploadImage(file, signal), gcTime: 0 })
   const enhancementMutation = useMutation({ mutationFn: ({ imageId, token, signal }: { imageId: string; token: string; signal: AbortSignal }) => enhanceImage(imageId, token, signal), gcTime: 0 })
-  const exportMutation = useMutation({ mutationFn: ({ imageId, token, adjustments, signal }: { imageId: string; token: string; adjustments: Adjustments; signal: AbortSignal }) => exportImage(imageId, token, adjustments, signal), gcTime: 0 })
+  const exportMutation = useMutation({ mutationFn: ({ imageId, token, adjustments, crop, signal }: { imageId: string; token: string; adjustments: Adjustments; crop: Crop | null; signal: AbortSignal }) => exportImage(imageId, token, adjustments, signal, crop), gcTime: 0 })
   const deleteMutation = useMutation({ mutationFn: ({ imageId, token }: { imageId: string; token: string }) => deleteImage(imageId, token), gcTime: 0 })
   const [photo, setPhoto] = useState<StudioPhoto | null>(null)
   const [values, setValues] = useState<Adjustments>({ ...NEUTRAL })
+  const [crop, setCrop] = useState<Crop | null>(null)
+  const [renderedCrop, setRenderedCrop] = useState<Crop | null>(null)
+  const [cropEditing, setCropEditing] = useState(false)
   const [activePreset, setActivePreset] = useState('Original')
   const [compare, setCompare] = useState(false)
   const [split, setSplit] = useState(50)
@@ -94,11 +99,12 @@ export function Studio() {
 
   useEffect(() => {
     if (!photo) return
-    const requestKey = `${photo.imageId}:${JSON.stringify(values)}`
+    const requestKey = `${photo.imageId}:${JSON.stringify(values)}:${JSON.stringify(crop)}`
     const immediate = previewNow.current
     previewNow.current = false
     const isNeutral = Object.entries(values).every(([key, value]) => value === NEUTRAL[key as keyof Adjustments])
-    if (isNeutral) {
+    if (isNeutral && !crop) {
+      setRenderedCrop(null)
       renderedPreviewKey.current = requestKey
       const current = currentPhoto.current
       if (current?.imageId === photo.imageId && current.previewUrl !== current.originalPreviewUrl) {
@@ -124,7 +130,7 @@ export function Studio() {
     const timer = window.setTimeout(async () => {
       activePreviewKey.current = requestKey
       try {
-        const result = await getPreview(photo.imageId, photo.accessToken, revision, values, controller.signal)
+        const result = await getPreview(photo.imageId, photo.accessToken, revision, values, controller.signal, crop)
         if (controller.signal.aborted || currentPhoto.current?.imageId !== photo.imageId || previewRevision.current !== revision) return
         if (result.revision !== String(revision)) throw new Error('The preview response did not match the latest settings. Try again.')
         const current = currentPhoto.current
@@ -134,6 +140,7 @@ export function Studio() {
         const next = { ...current, previewUrl, url: previewUrl }
         currentPhoto.current = next
         renderedPreviewKey.current = requestKey
+        setRenderedCrop(crop)
         setPhoto(next)
         setPreviewReady(true)
         setError('')
@@ -154,12 +161,12 @@ export function Studio() {
       controller.abort()
       if (activePreviewKey.current === requestKey) activePreviewKey.current = ''
     }
-  }, [photo?.imageId, photo?.accessToken, values, previewFlush])
+  }, [photo?.imageId, photo?.accessToken, values, crop, previewFlush])
 
   function flushPreview() {
     const current = currentPhoto.current
     if (!current) return
-    const requestKey = `${current.imageId}:${JSON.stringify(values)}`
+    const requestKey = `${current.imageId}:${JSON.stringify(values)}:${JSON.stringify(crop)}`
     if (activePreviewKey.current === requestKey || renderedPreviewKey.current === requestKey) return
     previewNow.current = true
     setPreviewFlush(current => current + 1)
@@ -195,6 +202,7 @@ export function Studio() {
     currentPhoto.current = next
     enhancementFeedback.current = ''
     setPreviewReady(true)
+    setCrop(null); setRenderedCrop(null); setCropEditing(false)
     setPhoto(next); setValues({ ...NEUTRAL }); setActivePreset('Original'); setCompare(false); setSplit(50)
     setStatus(`${next.name} is ready to edit.`)
   }
@@ -297,7 +305,7 @@ export function Studio() {
     exportController.current = controller
     setError(''); setStatus('Preparing your full-resolution JPEG…')
     try {
-      const result = await exportMutation.mutateAsync({ imageId: target.imageId, token: target.accessToken, adjustments: snapshot, signal: controller.signal })
+      const result = await exportMutation.mutateAsync({ imageId: target.imageId, token: target.accessToken, adjustments: snapshot, crop, signal: controller.signal })
       if (controller.signal.aborted || currentPhoto.current?.imageId !== target.imageId) return
       const url = URL.createObjectURL(result.blob)
       const headerName = result.contentDisposition?.match(/filename="([^"]+)"/i)?.[1]
@@ -324,6 +332,8 @@ export function Studio() {
     if (event.dataTransfer.files.length !== 1) { setError('Choose one photograph at a time.'); return }
     void upload(event.dataTransfer.files[0])
   }
+  const displayWidth = renderedCrop?.width ?? photo?.width ?? 1
+  const displayHeight = renderedCrop?.height ?? photo?.height ?? 1
   const dirty = Object.entries(values).some(([key,value]) => value !== NEUTRAL[key as keyof Adjustments])
 
   return <div className={styles.studio}>
@@ -352,10 +362,10 @@ export function Studio() {
       <section className={styles.center} aria-label="Photograph workspace">
         <div className={styles.workspaceToolbar}><div><span className="status-dot"/><h1>{photo ? 'Your perspective' : 'A fresh perspective'}</h1></div><span className={styles.workspaceMode}>{photo ? (previewReady ? activePreset.toUpperCase() : 'PREVIEW OUTDATED') : 'READY WHEN YOU ARE'}</span></div>
         <div className={`${styles.canvas} ${dragging ? styles.dragging : ''}`} onDragOver={e => { e.preventDefault(); setDragging(true) }} onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragging(false) }} onDrop={drop}>
-          {photo ? <><div className={styles.imageContainer} style={{ '--photo-ratio': photo.width / photo.height } as CSSProperties}><PhotoPreview src={photo.previewUrl} originalSrc={photo.originalPreviewUrl} name={photo.name} values={values} compare={compare} split={split} onSplit={setSplit} authoritative eager/></div>{loading && <div className={styles.loadingOverlay}><LoaderCircle className={styles.spinner} size={22}/><span>Uploading photograph…</span></div>}</> : <div className={styles.emptyState}><div className={styles.emptyIcon}><ImagePlus size={34} strokeWidth={1}/><span>+</span></div><span className="eyebrow">EVERY EDIT STARTS WITH A MOMENT</span><h2>Bring your photograph<br/>into the light.</h2><p>Drop a photograph here, or choose one from your device.<br/>A little perspective goes a long way.</p><button className="button primary" onClick={() => fileInput.current?.click()} disabled={loading}>{loading ? <LoaderCircle className={styles.spinner} size={17}/> : <Upload size={16}/>} {loading ? 'Uploading photograph…' : 'Choose a photograph'}</button><span className={styles.uploadLimits}>JPG, PNG, WEBP · MAX 10 MB · 24 MP</span><div className={styles.sampleDivider}><span/>OR EXPLORE FIRST<span/></div><button className={styles.sampleButton} onClick={() => void useSample()} disabled={loading}><img src="/images/alpine.jpg" alt="" width="47" height="36"/><span>Try a sample photograph<small>A view worth a second look.</small></span><ArrowUpRight size={16}/></button></div>}
+          {photo ? <><div className={styles.imageContainer} style={{ '--photo-ratio': displayWidth / displayHeight } as CSSProperties}><PhotoPreview src={photo.previewUrl} originalSrc={photo.originalPreviewUrl} name={photo.name} values={values} compare={compare} split={split} onSplit={setSplit} crop={renderedCrop} originalWidth={photo.width} originalHeight={photo.height} authoritative eager/></div>{loading && <div className={styles.loadingOverlay}><LoaderCircle className={styles.spinner} size={22}/><span>Uploading photograph…</span></div>}</> : <div className={styles.emptyState}><div className={styles.emptyIcon}><ImagePlus size={34} strokeWidth={1}/><span>+</span></div><span className="eyebrow">EVERY EDIT STARTS WITH A MOMENT</span><h2>Bring your photograph<br/>into the light.</h2><p>Drop a photograph here, or choose one from your device.<br/>A little perspective goes a long way.</p><button className="button primary" onClick={() => fileInput.current?.click()} disabled={loading}>{loading ? <LoaderCircle className={styles.spinner} size={17}/> : <Upload size={16}/>} {loading ? 'Uploading photograph…' : 'Choose a photograph'}</button><span className={styles.uploadLimits}>JPG, PNG, WEBP · MAX 10 MB · 24 MP</span><div className={styles.sampleDivider}><span/>OR EXPLORE FIRST<span/></div><button className={styles.sampleButton} onClick={() => void useSample()} disabled={loading}><img src="/images/alpine.jpg" alt="" width="47" height="36"/><span>Try a sample photograph<small>A view worth a second look.</small></span><ArrowUpRight size={16}/></button></div>}
           {dragging && <div className={styles.dropOverlay}><Upload size={28}/><span>Drop one photograph to begin</span></div>}
         </div>
-        <div className={styles.workspaceBottom}><div className={styles.imageInfo}>{photo ? <><span title={photo.name}>{photo.name}</span><small>{photo.width} × {photo.height} <i>·</i> {photo.format}</small></> : <><span>No photograph selected</span><small>Your creative space is ready.</small></>}</div><span className={styles.fitLabel}><Maximize2 size={13}/>Fit</span><button className={compare ? styles.compareActive : ''} disabled={!photo} aria-pressed={compare} onClick={() => setCompare(!compare)}><ScanLine size={15}/><span>Compare</span></button></div>
+        <div className={styles.workspaceBottom}><div className={styles.imageInfo}>{photo ? <><span title={photo.name}>{photo.name}</span><small>{displayWidth} × {displayHeight} <i>·</i> {photo.format}</small></> : <><span>No photograph selected</span><small>Your creative space is ready.</small></>}</div><button disabled={!photo || loading || exportMutation.isPending} onClick={() => setCropEditing(true)}><CropIcon size={15}/><span>Crop</span></button><span className={styles.fitLabel}><Maximize2 size={13}/>Fit</span><button className={compare ? styles.compareActive : ''} disabled={!photo} aria-pressed={compare} onClick={() => setCompare(!compare)}><ScanLine size={15}/><span>Compare</span></button></div>
         {error && <div role="alert" className={styles.error}><Info size={16}/><span>{error}</span><button aria-label="Dismiss error" onClick={() => setError('')}><X size={15}/></button></div>}
         <div role="status" className={styles.status}>{status || 'Your original stays untouched while previews are rendered from its normalized copy.'}</div>
       </section>
@@ -368,13 +378,17 @@ export function Studio() {
       </aside>
     </main>
     <footer className={styles.studioFooter}><span><span className="status-dot"/> LUMALAB / CREATIVE WORKSPACE</span><span>LIGHT. COLOUR. CREATE.</span><span>ONE ORIGINAL. YOUR PERSPECTIVE.</span></footer>
+    {cropEditing && photo && <CropEditor src={photo.originalPreviewUrl} width={photo.width} height={photo.height} crop={crop} onCancel={() => setCropEditing(false)} onApply={next => {
+      if (JSON.stringify(next) === JSON.stringify(crop)) { setCropEditing(false); return }
+      invalidateEditedWork(); exportController.current?.abort(); enhancementFeedback.current = ''; setPreviewReady(false); setCrop(next); setCropEditing(false); setError(''); setStatus(next ? 'Rendering your crop…' : 'Restoring the full photograph…')
+    }}/>}
     <dialog ref={dialog} className={styles.dialog} onCancel={() => setModal(null)} onClose={() => setModal(null)} onClick={e => { if (e.target === e.currentTarget) { const r=e.currentTarget.getBoundingClientRect(); if(e.clientX<r.left || e.clientX>r.right || e.clientY<r.top || e.clientY>r.bottom) setModal(null) } }} aria-labelledby="dialog-title" aria-describedby="dialog-description">
       <div className={styles.dialogTop}><span className="eyebrow">{modal === 'export' ? 'THE FINAL FRAME' : 'A LITTLE ASSISTANCE'}</span><button className="icon-button" aria-label="Close dialog" onClick={() => setModal(null)}><X size={18}/></button></div>
       <div className={styles.dialogIcon}>{modal === 'export' ? <Download size={27}/> : <Sparkles size={27}/>}</div>
       <h2 id="dialog-title">{modal === 'export' ? 'Your photograph, ready for the world.' : 'A balanced starting point.'}</h2>
-      <p id="dialog-description">{modal === 'export' ? 'Download a full-resolution JPEG using the adjustments shown in your workspace.' : 'Auto Enhance analyses your original and suggests a complete set of adjustments. Your current edits stay in place if the analysis cannot finish.'}</p>
+      <p id="dialog-description">{modal === 'export' ? 'Download a JPEG at the selected crop resolution using the adjustments shown in your workspace.' : 'Auto Enhance analyses your original and suggests a complete set of adjustments. Your current edits stay in place if the analysis cannot finish.'}</p>
       {error && <div role="alert" className={styles.error}><Info size={16}/><span>{error}</span></div>}
-      {modal === 'export' && <dl className={styles.exportDetails}><div><dt>Format</dt><dd>JPEG</dd></div><div><dt>Quality</dt><dd>92 / 100</dd></div><div><dt>Resolution</dt><dd>{photo?.width} × {photo?.height}</dd></div><div><dt>Look</dt><dd>{activePreset}</dd></div></dl>}
+      {modal === 'export' && <dl className={styles.exportDetails}><div><dt>Format</dt><dd>JPEG</dd></div><div><dt>Quality</dt><dd>92 / 100</dd></div><div><dt>Resolution</dt><dd>{crop?.width ?? photo?.width} × {crop?.height ?? photo?.height}</dd></div><div><dt>Look</dt><dd>{activePreset}</dd></div></dl>}
       <div className={styles.serviceNote}><Info size={15}/><span>Private processing. Your original remains unchanged.</span></div>
       <button className="button primary" disabled={modal === 'export' ? (!previewReady || exportMutation.isPending) : enhancementMutation.isPending} onClick={() => { if (modal === 'export') void downloadExport(); else void autoEnhance() }}>
         {modal === 'export' ? (exportMutation.isPending ? 'Preparing JPEG…' : 'Download JPEG') : (enhancementMutation.isPending ? 'Analyzing original…' : 'Apply suggestions')}

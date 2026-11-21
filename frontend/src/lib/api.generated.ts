@@ -1,16 +1,17 @@
 // Generated from backend OpenAPI; run npm run contracts:generate. Do not edit.
-// Schema SHA-256: b92c5271a8cfcaa1909d3d48663cc0866b72a3c4f4c1a91d26aec8641eb1ab09
+// Schema SHA-256: a33936c7aaa2c674ce883a1eb081d70aa606ef8bc0b8e75fc6df95a43d3983ca
 export interface components {
   schemas: {
     "Adjustments": { "brightness": number; "contrast": number; "saturation": number; "warmth": number; "sharpness": number; "vignette": number };
     "Body_upload_api_v1_images_post": { "file": Blob };
+    "Crop": { "x": number; "y": number; "width": number; "height": number };
     "Enhancement": { "adjustments": components["schemas"]["Adjustments"]; "message": string };
     "ErrorDetail": { "code": string; "message": string };
     "ErrorResponse": { "error": components["schemas"]["ErrorDetail"] };
-    "ExportRequest": { "adjustments": components["schemas"]["Adjustments"]; "format"?: "jpeg"; "quality"?: 92 };
+    "ExportRequest": { "adjustments": components["schemas"]["Adjustments"]; "crop"?: components["schemas"]["Crop"] | null; "format"?: "jpeg"; "quality"?: 92 };
     "HealthResponse": { "status"?: "ready" };
     "Preset": { "preset_id": string; "preset_name": string; "description": string; "brightness": number; "contrast": number; "saturation": number; "warmth": number; "sharpness": number; "vignette": number };
-    "PreviewRequest": { "revision": number; "adjustments": components["schemas"]["Adjustments"] };
+    "PreviewRequest": { "revision": number; "adjustments": components["schemas"]["Adjustments"]; "crop"?: components["schemas"]["Crop"] | null };
     "UnavailableError": { "code"?: "service_unavailable"; "message"?: string };
     "UnavailableResponse": { "error": components["schemas"]["UnavailableError"] };
     "UploadedImage": { "image_id": string; "access_token": string; "filename": string; "format": "JPEG" | "PNG" | "WEBP"; "width": number; "height": number; "expires_at": string };

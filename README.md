@@ -62,8 +62,6 @@ The interface adapts to desktop, tablet and mobile layouts. Keyboard controls, v
 4. **Compare and decide.** Review the original alongside the edited image, then refine or reset as needed.
 5. **Download the finished image.** Export a full-resolution JPEG for use in the user's own workflow.
 
-![LumaLab editing workspace](frontend/screenshots/studio-desktop.png)
-
 ## Supported images
 
 | Capability | Current support |

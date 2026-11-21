@@ -3,7 +3,7 @@ import { Link, useLocation } from '@tanstack/react-router'
 import { ArrowUpRight } from 'lucide-react'
 import { Brand } from './Brand'
 import styles from './Shared.module.css'
-export function Header() {
+export function Header({ onSectionNavigate }: { onSectionNavigate?: (event: React.MouseEvent<HTMLAnchorElement>, id: string) => void }) {
   const [open, setOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const hash = useLocation({ select: location => location.hash })
@@ -42,9 +42,8 @@ export function Header() {
     <div className={styles.headerInner}><Brand />
       <nav className={`${styles.nav} ${open ? styles.open : ''}`} id="site-nav" aria-label="Main navigation">
         <Link to="/" activeOptions={{ exact: true, includeHash: true }} onClick={() => setOpen(false)}>Home</Link>
-        <Link to="/studio" onClick={() => setOpen(false)}>Studio</Link>
-        <a href="#features" aria-current={hash === 'features' ? 'location' : undefined} onClick={() => setOpen(false)}>Features</a>
-        <a href="#about" aria-current={hash === 'about' ? 'location' : undefined} onClick={() => setOpen(false)}>About</a>
+        <a href="#features" aria-current={hash === 'features' ? 'location' : undefined} onClick={event => { setOpen(false); onSectionNavigate?.(event, 'features') }}>Features</a>
+        <a href="#about" aria-current={hash === 'about' ? 'location' : undefined} onClick={event => { setOpen(false); onSectionNavigate?.(event, 'about') }}>About</a>
         <Link to="/studio" className={styles.mobileCta} onClick={() => setOpen(false)}>Open Studio <ArrowUpRight size={16} /></Link>
       </nav>
       <Link to="/studio" className={`button primary ${styles.headerCta}`}>Open Studio <ArrowUpRight size={16} /></Link>

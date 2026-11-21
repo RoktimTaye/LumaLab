@@ -78,6 +78,62 @@ class ImageTests(unittest.TestCase):
                 'Content-Type: application/octet-stream\r\n\r\n').encode() + data + b"\r\n--test--\r\n"
         return self.request("POST", "/api/v1/images", body, "multipart/form-data; boundary=test")
 
+    def test_crop_preview_export_bounds_and_original_preservation(self):
+        source = Image.new("RGB", (80, 40), "red")
+        source.paste("blue", (40, 0, 80, 40))
+        output = BytesIO()
+        source.save(output, "PNG")
+        session = json.loads(self.upload(output.getvalue())[2])
+        path = "/api/v1/images/" + session["image_id"]
+        token = session["access_token"]
+        directory = self.app.state.image_store.sessions[session["image_id"]].directory
+        baseline = (directory / "normalized.png").read_bytes()
+        original = self.request("GET", path + "/original-preview", token=token)[2]
+        for suffix, size in (("/preview", (16, 16)), ("/export", (40, 40))):
+            status, headers, data = self.request("POST", path + suffix,
+                json.dumps({"revision": 8, "adjustments": NEUTRAL, "crop": {"x": 40, "y": 0, "width": 40, "height": 40}}
+                           if suffix == "/preview" else {"adjustments": NEUTRAL, "crop": {"x": 40, "y": 0, "width": 40, "height": 40}}).encode(),
+                "application/json", token)
+            self.assertEqual(status, 200)
+            with Image.open(BytesIO(data)) as image:
+                self.assertEqual(image.size, size)
+                red, green, blue = image.getpixel((size[0] // 2, size[1] // 2))
+                self.assertLess(red, 5)
+                self.assertGreater(blue, 245)
+                self.assertFalse(image.getexif())
+            if suffix == "/preview":
+                self.assertEqual(headers[b"x-image-revision"], b"8")
+        self.assertEqual((directory / "original").read_bytes(), output.getvalue())
+        self.assertEqual((directory / "normalized.png").read_bytes(), baseline)
+        self.assertEqual(self.request("GET", path + "/original-preview", token=token)[2], original)
+        for crop in ({"x": -1, "y": 0, "width": 20, "height": 20},
+                     {"x": 0, "y": 0, "width": 0, "height": 20},
+                     {"x": 70, "y": 0, "width": 20, "height": 20},
+                     {"x": 0, "y": 39, "width": 20, "height": 2},
+                     {"x": True, "y": 0, "width": 20, "height": 20},
+                     {"x": 1.5, "y": 0, "width": 20, "height": 20},
+                     {"x": "1", "y": 0, "width": 20, "height": 20},
+                     {"x": 0, "y": 0, "width": 10**9, "height": 20},
+                     {"x": 0, "y": 0, "width": 20, "height": 20, "path": "../secret"}):
+            for suffix in ("/preview", "/export"):
+                payload = {"adjustments": NEUTRAL, "crop": crop}
+                if suffix == "/preview":
+                    payload["revision"] = 9
+                status, headers, body = self.request("POST", path + suffix, json.dumps(payload).encode(), "application/json", token)
+                self.assertEqual(status, 422, crop)
+                self.assertNotIn(b"x-image-revision", headers)
+                self.assertNotIn(token.encode(), body)
+        self.assertEqual(self.request("POST", path + "/export", json.dumps({"adjustments": NEUTRAL,
+            "crop": {"x": 0, "y": 0, "width": 1, "height": 1}}).encode(), "application/json", "wrong-token")[0], 401)
+        for suffix in ("/preview", "/export"):
+            payload = {"adjustments": NEUTRAL, "crop": {"x": 79, "y": 39, "width": 1, "height": 1}}
+            if suffix == "/preview":
+                payload["revision"] = 10
+            status, _, data = self.request("POST", path + suffix, json.dumps(payload).encode(), "application/json", token)
+            self.assertEqual(status, 200)
+            with Image.open(BytesIO(data)) as image:
+                self.assertEqual(image.size, (1, 1))
+
     def test_upload_preview_enhance_export_and_delete(self):
         status, _, body = self.upload()
         self.assertEqual(status, 201)

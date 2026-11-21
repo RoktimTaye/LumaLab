@@ -40,7 +40,6 @@ Use `npm ci` with the committed `frontend/package-lock.json`. The stack is React
 | `frontend/public/` | Favicon and bundled sample photographs |
 | `frontend/tests/unit/` | Editor and image-response tests |
 | `frontend/tests/e2e/` | Connected workflow, accessibility, responsive and performance tests |
-| `frontend/screenshots/` | Existing visual reference captures |
 
 ## Editing behavior to preserve
 

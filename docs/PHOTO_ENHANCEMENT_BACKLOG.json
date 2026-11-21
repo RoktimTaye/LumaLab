@@ -1,0 +1,514 @@
+{
+  "schema_version": 1,
+  "created_on": "2026-11-21",
+  "project": "FLEX / LumaLab",
+  "status": "planning_only",
+  "plan": "PHOTO_ENHANCEMENT_PLAN.md",
+  "evidence": "PHOTO_ENHANCEMENT_RESEARCH.md",
+  "notes": [
+    "All tasks are proposed and unimplemented by this planning task.",
+    "Priorities: P0 required for initial release; P1 optional quality improvements gated by ablation; P2 later capability.",
+    "Timings and quality/performance targets in the plan are proposals, not measured outcomes.",
+    "Existing uncommitted application work must be preserved."
+  ],
+  "tasks": [
+    {
+      "id": "ENH-001",
+      "phase": "P0",
+      "priority": "P0",
+      "title": "Freeze quality brief and current baselines",
+      "owner_role": "Imaging + photo QA",
+      "status": "planned",
+      "depends_on": [],
+      "paths": [
+        "backend/app/services/images.py",
+        "backend/scripts/benchmark_images.py"
+      ],
+      "acceptance_criteria": [
+        "Archive current outputs for a 100-photo rights-cleared diagnostic set and record engine/source hashes.",
+        "Record Lightroom product/build/settings and use identical rendered inputs for the rendered-image comparison.",
+        "Record actual hardware, current latency and peak RSS; no quality-improvement claim before measurement."
+      ]
+    },
+    {
+      "id": "ENH-002",
+      "phase": "P0",
+      "priority": "P0",
+      "title": "Create dataset and model rights ledger",
+      "owner_role": "ML + project owner",
+      "status": "planned",
+      "depends_on": [],
+      "paths": [
+        "docs/PHOTO_ENHANCEMENT_RESEARCH.md"
+      ],
+      "acceptance_criteria": [
+        "Exclude FiveK and PPR10K images/derived artifacts from production training unless separately licensed.",
+        "Archive SIDD MIT statement and actual artifact notices.",
+        "Every proposed code/checkpoint/data artifact has exact version, hash, permitted use, obligations and unresolved items."
+      ]
+    },
+    {
+      "id": "ENH-003",
+      "phase": "P0",
+      "priority": "P0",
+      "title": "Build blinded evaluation and grouped split manifests",
+      "owner_role": "Photo QA + ML",
+      "status": "planned",
+      "depends_on": [
+        "ENH-001",
+        "ENH-002"
+      ],
+      "paths": [
+        "backend/scripts/evaluate_enhancement.py"
+      ],
+      "acceptance_criteria": [
+        "Pre-register Natural rubric, near-final denominator, severe artifacts, comparison tracks and statistical unit.",
+        "Group near-duplicates/shoots before splitting; reserve proposed 400-photo locked holdout without training leakage.",
+        "Randomize blinded review, record ties and technical failures, and bootstrap by shoot/scene group."
+      ]
+    },
+    {
+      "id": "ENH-004",
+      "phase": "P1",
+      "priority": "P0",
+      "title": "Implement precision and ICC reference path",
+      "owner_role": "Imaging",
+      "status": "planned",
+      "depends_on": [
+        "ENH-001"
+      ],
+      "paths": [
+        "backend/app/imaging/color.py",
+        "backend/pyproject.toml",
+        "Dockerfile"
+      ],
+      "acceptance_criteria": [
+        "Verify tagged/untagged RGB and supported high-bit-depth inputs against color reference patches.",
+        "Document encoded versus linear domains and ensure float32 calculation path.",
+        "Embed sRGB output ICC while stripping private metadata; unsupported modes fail clearly."
+      ]
+    },
+    {
+      "id": "ENH-005",
+      "phase": "P1",
+      "priority": "P0",
+      "title": "Implement photographic operators",
+      "owner_role": "Imaging",
+      "status": "planned",
+      "depends_on": [
+        "ENH-004"
+      ],
+      "paths": [
+        "backend/app/imaging/operators.py"
+      ],
+      "acceptance_criteria": [
+        "EV multiplication, normalized WB/tint, monotone tone curve and hue-aware chroma operations have numerical references.",
+        "Gradient, grayscale, clipping and skin/neutral fixtures expose no reproducible severe artifacts.",
+        "Keep legacy v1 renderer unchanged; do not equate old percentages with new units."
+      ]
+    },
+    {
+      "id": "ENH-006",
+      "phase": "P1",
+      "priority": "P0",
+      "title": "Build shared versioned renderer and preview/export identity",
+      "owner_role": "Imaging",
+      "status": "planned",
+      "depends_on": [
+        "ENH-005"
+      ],
+      "paths": [
+        "backend/app/imaging/pipeline.py",
+        "backend/app/imaging/recipes.py"
+      ],
+      "acceptance_criteria": [
+        "One immutable recipe and fixed graph drive preview and export.",
+        "Cache keys cover source/engine/model/color domains/overrides/crop/output.",
+        "Validate nonlinear-resize differences against full render downsample and preserve full-source mask coordinates."
+      ]
+    },
+    {
+      "id": "ENH-007",
+      "phase": "P1",
+      "priority": "P0",
+      "title": "Extend private artifacts and source metadata lifecycle",
+      "owner_role": "Backend",
+      "status": "planned",
+      "depends_on": [
+        "ENH-004"
+      ],
+      "paths": [
+        "backend/app/storage/images.py",
+        "backend/app/storage/runtime.py"
+      ],
+      "acceptance_criteria": [
+        "Reserve bytes atomically for recipes/masks/exports and publish completed artifacts atomically.",
+        "Job leases respect fixed expiry/deletion without orphaning files or allowing late result resurrection.",
+        "Store source color descriptor and immutable hash without leaking private metadata."
+      ]
+    },
+    {
+      "id": "ENH-008",
+      "phase": "P2",
+      "priority": "P0",
+      "title": "Add strict v2 session and recipe contracts",
+      "owner_role": "Backend",
+      "status": "planned",
+      "depends_on": [
+        "ENH-006",
+        "ENH-007"
+      ],
+      "paths": [
+        "backend/app/schemas/images_v2.py",
+        "backend/app/routes/images_v2.py",
+        "backend/scripts/contracts.py"
+      ],
+      "acceptance_criteria": [
+        "v1 contracts/presets/sessions remain compatible and engine-pinned.",
+        "Reject nonfinite floats, oversized arrays, unknown fields, foreign-session recipe handles and invalid crops.",
+        "OpenAPI and generated TypeScript cover selected v2 shapes and revision semantics."
+      ]
+    },
+    {
+      "id": "ENH-009",
+      "phase": "P2",
+      "priority": "P0",
+      "title": "Add bounded CPU jobs and cancellation",
+      "owner_role": "Backend",
+      "status": "planned",
+      "depends_on": [
+        "ENH-007",
+        "ENH-008"
+      ],
+      "paths": [
+        "backend/app/workers/enhancement.py",
+        "backend/app/lifespan.py",
+        "backend/app/config.py"
+      ],
+      "acceptance_criteria": [
+        "202/status/cancel lifecycle, idempotency, queue bounds, deadline and cleanup have behavior tests.",
+        "Parent owns authorization and storage; worker process receives scoped inputs and safe native-runtime startup.",
+        "Preview capacity remains available during export; timeout/OOM releases resources and discards partial output."
+      ]
+    },
+    {
+      "id": "ENH-010",
+      "phase": "P2",
+      "priority": "P0",
+      "title": "Implement robust analysis and deterministic enhancement fallback",
+      "owner_role": "Imaging",
+      "status": "planned",
+      "depends_on": [
+        "ENH-005",
+        "ENH-006"
+      ],
+      "paths": [
+        "backend/app/imaging/analysis.py",
+        "backend/app/services/enhancement.py"
+      ],
+      "acceptance_criteria": [
+        "Whole-frame luminance/color diagnostics plus full-resolution noise/detail samples guide bounded corrections.",
+        "Night, sunset, silhouette, monochrome and already-good fixtures preserve intent.",
+        "Candidate validation backs off strength on clipping/gamut/artifact failure; neutral result is an allowed fallback."
+      ]
+    },
+    {
+      "id": "ENH-011",
+      "phase": "P2",
+      "priority": "P0",
+      "title": "Integrate editable AI state into the studio",
+      "owner_role": "Frontend",
+      "status": "planned",
+      "depends_on": [
+        "ENH-008",
+        "ENH-009",
+        "ENH-010"
+      ],
+      "paths": [
+        "frontend/src/lib/api.ts",
+        "frontend/src/lib/editor.ts",
+        "frontend/src/pages/Studio.tsx"
+      ],
+      "acceptance_criteria": [
+        "AI recipe/strength and manual overrides are separate and fully undoable.",
+        "Re-enhance never compounds; Reset/Reset All and existing crop behavior are explicit.",
+        "Ignore late jobs/previews, export accepted revision only, retain auth in memory and show accurate capability/fallback state."
+      ]
+    },
+    {
+      "id": "ENH-012",
+      "phase": "P3",
+      "priority": "P0",
+      "title": "Commission and validate owned expert editing pairs",
+      "owner_role": "Photo QA + data owner",
+      "status": "planned",
+      "depends_on": [
+        "ENH-002",
+        "ENH-003"
+      ],
+      "paths": [
+        "training/data/manifest specification"
+      ],
+      "acceptance_criteria": [
+        "Start proposed 2000-photo grouped corpus with training/validation/locked-test partitions and documented training rights.",
+        "Capture full-resolution Natural targets, already-good examples, alternate acceptable edits for a subset and target color profiles.",
+        "Quality-control alignment/crop/compression, rights, duplicate groups and target style before training."
+      ]
+    },
+    {
+      "id": "ENH-013",
+      "phase": "P3",
+      "priority": "P0",
+      "title": "Train bounded controller and residual adaptive LUT baseline",
+      "owner_role": "ML",
+      "status": "planned",
+      "depends_on": [
+        "ENH-006",
+        "ENH-012"
+      ],
+      "paths": [
+        "training/retouching experiment code"
+      ],
+      "acceptance_criteria": [
+        "Freeze upstream render domains; fit control pseudo-labels with residual errors and train LUT only for remaining transform.",
+        "Identity initialization, bounded controls, regularizers and reproducible configs/checkpoints are recorded.",
+        "Use validation for selection and compare ablations to deterministic renderer, not unrelated paper PSNR numbers."
+      ]
+    },
+    {
+      "id": "ENH-014",
+      "phase": "P3",
+      "priority": "P0",
+      "title": "Implement approved predictor inference and LUT interpolation",
+      "owner_role": "ML + imaging",
+      "status": "planned",
+      "depends_on": [
+        "ENH-013",
+        "ENH-002"
+      ],
+      "paths": [
+        "backend/app/imaging/models.py",
+        "backend/app/imaging/lut.py"
+      ],
+      "acceptance_criteria": [
+        "Reference versus optimized interpolation agrees within declared precision on RGB lattice/ramp tests.",
+        "ONNX predictor parity is verified separately from LUT kernel; custom operators are not assumed portable.",
+        "Manifest validates artifact hash, preprocessing, color domain, expected shapes, runtime and permitted deployment use."
+      ]
+    },
+    {
+      "id": "ENH-015",
+      "phase": "P3",
+      "priority": "P1",
+      "title": "Benchmark spatial LUT challengers",
+      "owner_role": "ML",
+      "status": "planned",
+      "depends_on": [
+        "ENH-012",
+        "ENH-013"
+      ],
+      "paths": [
+        "training/spatial comparison code"
+      ],
+      "acceptance_criteria": [
+        "Train LUTwithBGrid/SVDLUT candidate under matched data/split/output conditions.",
+        "Measure quality on backlight/mixed-light slices plus latency/RSS/VRAM and required kernel portability.",
+        "Adopt only with demonstrated human gain and runtime feasibility; otherwise retain global baseline and record limitations."
+      ]
+    },
+    {
+      "id": "ENH-016",
+      "phase": "P4",
+      "priority": "P1",
+      "title": "Validate semantic masks and bounded local corrections",
+      "owner_role": "ML + imaging + photo QA",
+      "status": "planned",
+      "depends_on": [
+        "ENH-014"
+      ],
+      "paths": [
+        "backend/app/imaging/local.py"
+      ],
+      "acceptance_criteria": [
+        "Any semantic model has a rights/weight manifest and measured mask quality.",
+        "Skin/subject/background masks maintain full-source coordinate consistency, edge feathering and ordered overlap behavior.",
+        "Mask ablation improves target slices without leakage/halo/skin-tone failures; SAM2 alone is not treated as a semantic classifier."
+      ]
+    },
+    {
+      "id": "ENH-017",
+      "phase": "P4",
+      "priority": "P1",
+      "title": "Evaluate optional NAFNet denoising and restoration challenger",
+      "owner_role": "ML + imaging",
+      "status": "planned",
+      "depends_on": [
+        "ENH-002",
+        "ENH-003",
+        "ENH-014"
+      ],
+      "paths": [
+        "backend/app/imaging/restoration.py"
+      ],
+      "acceptance_criteria": [
+        "Use correct task checkpoint, trained color domain, normalization and explicit optional control.",
+        "Compare source-scale detail/skin/text/stars/fabrics and reject texture destruction or color shift.",
+        "Validate full-frame versus tile/local-statistics behavior and measured memory; try Restormer only when needed."
+      ]
+    },
+    {
+      "id": "ENH-018",
+      "phase": "P4",
+      "priority": "P0",
+      "title": "Complete full-resolution export and detail preview",
+      "owner_role": "Imaging + frontend",
+      "status": "planned",
+      "depends_on": [
+        "ENH-006",
+        "ENH-011",
+        "ENH-014"
+      ],
+      "paths": [
+        "backend/app/routes/images_v2.py",
+        "frontend/src/components/PhotoPreview.tsx"
+      ],
+      "acceptance_criteria": [
+        "Render accepted recipe/override/crop revision at source dimensions and attach correct ICC.",
+        "Provide source-scale detail preview when restoration is enabled; label any reduced-detail preview.",
+        "Strength zero, repeat enhancement, output sharpening and preview/export consistency pass fixtures."
+      ]
+    },
+    {
+      "id": "ENH-019",
+      "phase": "P5",
+      "priority": "P0",
+      "title": "Qualify load, memory, storage retirement and privacy",
+      "owner_role": "Backend + QA",
+      "status": "planned",
+      "depends_on": [
+        "ENH-009",
+        "ENH-018"
+      ],
+      "paths": [
+        "backend/scripts/benchmark_enhancement.py",
+        "backend/tests"
+      ],
+      "acceptance_criteria": [
+        "Record cold/warm stage latency, queue wait, RSS/VRAM and throughput on declared hardware.",
+        "Simultaneous uploads/previews/exports/deletion/expiry/restarts do not leak sessions or deadlock.",
+        "Cross-session recipes and wrong-revision exports fail; admission is sized from measured peak memory, not request counts alone."
+      ]
+    },
+    {
+      "id": "ENH-020",
+      "phase": "P5",
+      "priority": "P0",
+      "title": "Run locked quality study and decide release",
+      "owner_role": "Photo QA + ML + product owner",
+      "status": "planned",
+      "depends_on": [
+        "ENH-003",
+        "ENH-011",
+        "ENH-014",
+        "ENH-018"
+      ],
+      "paths": [
+        "evaluation/versioned release readout"
+      ],
+      "acceptance_criteria": [
+        "Report near-final rate, preference, finishing time, failures, grouped uncertainty and slice counts against proposed gates.",
+        "Compare identical inputs to original, current engine, Lightroom Auto and expert final separately.",
+        "Do not claim parity from inconclusive results; enlarge sparse/underpowered samples and fix failed slices before promotion."
+      ]
+    },
+    {
+      "id": "ENH-021",
+      "phase": "P5",
+      "priority": "P0",
+      "title": "Add telemetry, model readiness and rollback runbook",
+      "owner_role": "Backend",
+      "status": "planned",
+      "depends_on": [
+        "ENH-014",
+        "ENH-019"
+      ],
+      "paths": [
+        "backend/app/lifespan.py",
+        "backend/app/logging.py",
+        "backend/app/config.py"
+      ],
+      "acceptance_criteria": [
+        "Warmup/self-check and optional model readiness work without request-time downloads.",
+        "Observe stage latency, failure/fallback category and engine/model version without image/token/private metadata logs.",
+        "Version pins and tested rollback preserve active accepted recipes or return an explicit failure."
+      ]
+    },
+    {
+      "id": "ENH-022",
+      "phase": "P5",
+      "priority": "P0",
+      "title": "Finish compatibility checks and staged canary",
+      "owner_role": "Backend + frontend + QA",
+      "status": "planned",
+      "depends_on": [
+        "ENH-019",
+        "ENH-020",
+        "ENH-021"
+      ],
+      "paths": [
+        "backend/tests",
+        "frontend/tests",
+        "Backend_doc.md",
+        "Frontend_doc.md"
+      ],
+      "acceptance_criteria": [
+        "Run backend suite, generated contract check, frontend tests/build and relevant e2e after implementation.",
+        "Keep existing crop and v1 preset regressions passing; document supported formats, limits and actual fallback behavior.",
+        "Promote opt-in/5%/25%/100% stages only after sufficient reviewed exposure; rollback triggers are rehearsed."
+      ]
+    },
+    {
+      "id": "ENH-023",
+      "phase": "P6",
+      "priority": "P2",
+      "title": "Add distributed worker/session prerequisites if scaling is needed",
+      "owner_role": "Backend",
+      "status": "planned",
+      "depends_on": [
+        "ENH-019",
+        "ENH-022"
+      ],
+      "paths": [
+        "backend/app/storage",
+        "backend/app/workers"
+      ],
+      "acceptance_criteria": [
+        "Move shared session authorization, jobs and private artifact lifecycle out of process-local state before multiple web replicas.",
+        "Use authenticated queues, scoped storage access, distributed admission and deletion coordination.",
+        "Measure idle/active GPU cost and end-to-end throughput before adopting infrastructure."
+      ]
+    },
+    {
+      "id": "ENH-024",
+      "phase": "P6",
+      "priority": "P2",
+      "title": "Implement separate RAW development and pro export track",
+      "owner_role": "Imaging + ML",
+      "status": "planned",
+      "depends_on": [
+        "ENH-004",
+        "ENH-019",
+        "ENH-022"
+      ],
+      "paths": [
+        "backend/app/imaging/raw.py",
+        "backend/app/schemas/images_v2.py"
+      ],
+      "acceptance_criteria": [
+        "Camera-specific decode/WB/demosaic/profile/highlight behavior and rawpy worker start method are validated.",
+        "Raise upload/pixel limits only after worst-case memory tests; 16-bit export and ICC writing have reference validation.",
+        "RAW quality is measured against identical RAW inputs in Lightroom, independently of rendered-image claims."
+      ]
+    }
+  ]
+}

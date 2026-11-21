@@ -1,0 +1,357 @@
+{
+  "retrieved_on": "2026-11-21",
+  "provider": "Firecrawl",
+  "records": [
+    {
+      "record": 0,
+      "url": "https://helpx.adobe.com/lightroom/desktop/edit-photos/enhance-details.html",
+      "title": "Easily enhance image quality in Lightroom | Lightroom",
+      "scrape_id": "01a1fca7-a093-7579-b67d-834fd2da1a58",
+      "content_length": 22700,
+      "retrieval_error": null,
+      "http_status": 200
+    },
+    {
+      "record": 1,
+      "url": "https://www.adobe.com/learn/lightroom-cc/web/lightroom-ai-order-of-operations",
+      "title": "Adobe Learn - Learn Lightroom - Build your AI editing workflow in Lightroom",
+      "scrape_id": "01a1fca7-a0d6-739b-a85c-73b928d32b6b",
+      "content_length": 8523,
+      "retrieval_error": null,
+      "http_status": 200
+    },
+    {
+      "record": 2,
+      "url": "https://github.com/HuiZeng/Image-Adaptive-3DLUT",
+      "title": "GitHub - HuiZeng/Image-Adaptive-3DLUT: Learning Image-adaptive 3D Lookup Tables for High Performance Photo Enhancement in Real-time · GitHub",
+      "scrape_id": "01a1fca7-a49d-778e-b246-617b43d68ff4",
+      "content_length": 20894,
+      "retrieval_error": null,
+      "http_status": 200
+    },
+    {
+      "record": 3,
+      "url": "https://github.com/mgharbi/hdrnet",
+      "title": "GitHub - mgharbi/hdrnet: An implementation of 'Deep Bilateral Learning for Real-Time Image Enhancement', SIGGRAPH 2017 · GitHub",
+      "scrape_id": "01a1fca7-a214-7439-b880-687a5574eccb",
+      "content_length": 10077,
+      "retrieval_error": null,
+      "http_status": 200
+    },
+    {
+      "record": 4,
+      "url": "https://data.csail.mit.edu/graphics/fivek/",
+      "title": "MIT-Adobe FiveK dataset",
+      "scrape_id": "01a1fca7-a153-718d-8b36-6f67f61774e3",
+      "content_length": 4159462,
+      "retrieval_error": null,
+      "http_status": 200
+    },
+    {
+      "record": 5,
+      "url": "https://github.com/csjliang/PPR10K",
+      "title": "GitHub - csjliang/PPR10K: Official Implementation and Dataset of  \"PPR10K: A Large-Scale Portrait Photo Retouching Dataset with Human-Region Mask and Group-Level Consistency\", CVPR 2021 · GitHub",
+      "scrape_id": "01a1fca7-a1e3-71b3-bff3-1dda23a698b4",
+      "content_length": 13655,
+      "retrieval_error": null,
+      "http_status": 200
+    },
+    {
+      "record": 6,
+      "url": "https://data.csail.mit.edu/graphics/fivek/legal/LicenseAdobe.txt",
+      "title": null,
+      "scrape_id": "01a1fca8-488c-777c-83bc-18a94b5f211a",
+      "content_length": 1841,
+      "retrieval_error": null,
+      "http_status": 200
+    },
+    {
+      "record": 7,
+      "url": "https://data.csail.mit.edu/graphics/fivek/legal/LicenseAdobeMIT.txt",
+      "title": null,
+      "scrape_id": "01a1fca8-4a1e-7543-aefb-6e29b5703f7c",
+      "content_length": 1994,
+      "retrieval_error": null,
+      "http_status": 200
+    },
+    {
+      "record": 8,
+      "url": "https://raw.githubusercontent.com/csjliang/PPR10K/master/LICENSE",
+      "title": null,
+      "scrape_id": "01a1fca8-4a21-741e-86a9-1e1b9c991793",
+      "content_length": 11357,
+      "retrieval_error": null,
+      "http_status": 200
+    },
+    {
+      "record": 9,
+      "url": "https://raw.githubusercontent.com/megvii-research/NAFNet/main/README.md",
+      "title": null,
+      "scrape_id": "01a1fca8-4a21-74fb-a69f-876a8c20c6c7",
+      "content_length": 232,
+      "retrieval_error": null,
+      "http_status": 404
+    },
+    {
+      "record": 10,
+      "url": "https://raw.githubusercontent.com/swz30/Restormer/main/README.md",
+      "title": null,
+      "scrape_id": "01a1fca8-4a59-77da-863f-4d5b1d93b60e",
+      "content_length": 9618,
+      "retrieval_error": null,
+      "http_status": 200
+    },
+    {
+      "record": 11,
+      "url": "https://raw.githubusercontent.com/xinntao/Real-ESRGAN/master/README.md",
+      "title": null,
+      "scrape_id": "01a1fca8-4a44-7268-bfbf-70295a0257a8",
+      "content_length": 16358,
+      "retrieval_error": null,
+      "http_status": 200
+    },
+    {
+      "record": 12,
+      "url": "https://raw.githubusercontent.com/megvii-research/NAFNet/master/README.md",
+      "title": null,
+      "scrape_id": "01a1fca8-82e9-706f-b5c5-7a3f1d5323a6",
+      "content_length": 232,
+      "retrieval_error": null,
+      "http_status": 404
+    },
+    {
+      "record": 13,
+      "url": "https://raw.githubusercontent.com/megvii-research/NAFNet/master/LICENSE",
+      "title": null,
+      "scrape_id": "01a1fca8-834d-710c-b611-98ad7903442a",
+      "content_length": 12466,
+      "retrieval_error": null,
+      "http_status": 200
+    },
+    {
+      "record": 14,
+      "url": "https://raw.githubusercontent.com/swz30/Restormer/main/LICENSE.md",
+      "title": null,
+      "scrape_id": "01a1fca8-834c-7391-b292-8cfb38920f00",
+      "content_length": 1090,
+      "retrieval_error": null,
+      "http_status": 200
+    },
+    {
+      "record": 15,
+      "url": "https://raw.githubusercontent.com/xinntao/Real-ESRGAN/master/LICENSE",
+      "title": null,
+      "scrape_id": "01a1fca8-82da-70f8-8913-c37c1e317d40",
+      "content_length": 1519,
+      "retrieval_error": null,
+      "http_status": 200
+    },
+    {
+      "record": 16,
+      "url": "https://www.libvips.org/API/current/How-it-works.html",
+      "title": "Vips – 8.0: Technical background > Evaluation",
+      "scrape_id": "01a1fca8-82e6-716b-974c-34853c3fc8e1",
+      "content_length": 15279,
+      "retrieval_error": null,
+      "http_status": 200
+    },
+    {
+      "record": 17,
+      "url": "https://letmaik.github.io/rawpy/api/rawpy.Params.html",
+      "title": "Params class — rawpy 0.28.0 documentation",
+      "scrape_id": "01a1fca8-82e8-76d2-bb5e-4507f955a3f7",
+      "content_length": 9897,
+      "retrieval_error": null,
+      "http_status": 200
+    },
+    {
+      "record": 18,
+      "url": "https://helpx.adobe.com/lightroom/desktop/edit-photos/edit-photos.html",
+      "title": "Edit photos using presets in Lightroom desktop | Lightroom",
+      "scrape_id": "01a1fca8-82e3-720b-b735-74dfd1142e4b",
+      "content_length": 56396,
+      "retrieval_error": null,
+      "http_status": 200
+    },
+    {
+      "record": 19,
+      "url": "https://helpx.adobe.com/lightroom/desktop/edit-photos/masking.html",
+      "title": "Apply Masking for local adjustments | Lightroom",
+      "scrape_id": "01a1fca8-836f-75ce-9c67-12dc4813d8a8",
+      "content_length": 34595,
+      "retrieval_error": null,
+      "http_status": 200
+    },
+    {
+      "record": 20,
+      "url": "https://github.com/megvii-research/NAFNet",
+      "title": "GitHub - megvii-research/NAFNet: The state-of-the-art image restoration model without nonlinear activation functions. · GitHub",
+      "scrape_id": "01a1fca8-dcef-752e-a220-a64827574db3",
+      "content_length": 31631,
+      "retrieval_error": null,
+      "http_status": 200
+    },
+    {
+      "record": 21,
+      "url": "https://github.com/mv-lab/nilut",
+      "title": "GitHub - mv-lab/nilut: [AAAI 2024] NILUT: Conditional Neural Implicit 3D Lookup Tables for Image Enhancement. Project Website https://mv-lab.github.io/nilut/ · GitHub",
+      "scrape_id": "01a1fca8-dd83-70fb-9ffc-fd6ccaba9c8d",
+      "content_length": 20538,
+      "retrieval_error": null,
+      "http_status": 200
+    },
+    {
+      "record": 22,
+      "url": "https://github.com/facebookresearch/sam2",
+      "title": "GitHub - facebookresearch/sam2: The repository provides code for running inference with the Meta Segment Anything Model 2 (SAM 2), links for downloading the trained model checkpoints, and example notebooks that show how to use the model. · GitHub",
+      "scrape_id": "01a1fca8-dd40-71a5-882c-2820c53887c3",
+      "content_length": 58714,
+      "retrieval_error": null,
+      "http_status": 200
+    },
+    {
+      "record": 23,
+      "url": "https://abdokamel.github.io/sidd/",
+      "title": "SIDD",
+      "scrape_id": "01a1fca8-de24-73af-8925-a62b4a2a0062",
+      "content_length": 11235,
+      "retrieval_error": null,
+      "http_status": 200
+    },
+    {
+      "record": 24,
+      "url": "https://onnxruntime.ai/docs/performance/model-optimizations/quantization.html",
+      "title": "Quantize ONNX models | onnxruntime",
+      "scrape_id": "01a1fca8-dcfb-74bc-99a0-1c9c1df4ecf0",
+      "content_length": 19639,
+      "retrieval_error": null,
+      "http_status": 200
+    },
+    {
+      "record": 25,
+      "url": "https://github.com/chaofengc/IQA-PyTorch",
+      "title": "GitHub - chaofengc/IQA-PyTorch: 🔎 🖼️ 🔥PyTorch Toolbox for Image Quality Assessment, including PSNR, SSIM, LPIPS, FID, NIQE, NRQM(Ma), MUSIQ, TOPIQ, NIMA, DBCNN, BRISQUE, PI and more... · GitHub",
+      "scrape_id": "01a1fca8-dd83-7196-a89a-f2e39e65593b",
+      "content_length": 45925,
+      "retrieval_error": null,
+      "http_status": 200
+    },
+    {
+      "record": 26,
+      "url": "https://www.libvips.org/API/current/method.Image.icc_transform.html",
+      "title": "Vips.Image.icc_transform",
+      "scrape_id": "01a1fca8-dd84-76da-b3b6-3de94ef00889",
+      "content_length": 3057,
+      "retrieval_error": null,
+      "http_status": 200
+    },
+    {
+      "record": 27,
+      "url": "https://github.com/WontaeaeKim/LUTwithBGrid",
+      "title": "GitHub - WontaeaeKim/LUTwithBGrid: The official PyTorch implementation for the paper \"Image-adaptive 3D Lookup Tables for Real-time Image Enhancement with Bilateral Grids\" (accepted by ECCV 2024) · GitHub",
+      "scrape_id": "01a1fcaa-23fc-74e9-a219-b8c93132729e",
+      "content_length": 16565,
+      "retrieval_error": null,
+      "http_status": 200
+    },
+    {
+      "record": 28,
+      "url": "https://github.com/WontaeaeKim/SVDLUT",
+      "title": "GitHub - WontaeaeKim/SVDLUT: The official PyTorch implementation for the paper \"Lightweight and Fast Real-time Image Enhancement via Decomposition of the Spatial-aware Lookup Tables\" (accepted by ICCV 2025) · GitHub",
+      "scrape_id": "01a1fcaa-2406-718e-b95c-f07704944a77",
+      "content_length": 16924,
+      "retrieval_error": null,
+      "http_status": 200
+    },
+    {
+      "record": 29,
+      "url": "https://github.com/richzhang/PerceptualSimilarity",
+      "title": "GitHub - richzhang/PerceptualSimilarity: LPIPS metric. pip install lpips · GitHub",
+      "scrape_id": "01a1fcaa-2639-753f-a94b-026380eaa9ab",
+      "content_length": 24322,
+      "retrieval_error": null,
+      "http_status": 200
+    },
+    {
+      "record": 30,
+      "url": "https://hdrplusdata.org/dataset.html",
+      "title": "HDR+ burst photography dataset - details",
+      "scrape_id": "01a1fcaa-24df-7478-bc64-705d545b9c97",
+      "content_length": 8232,
+      "retrieval_error": null,
+      "http_status": 200
+    },
+    {
+      "record": 31,
+      "url": "https://raw.githubusercontent.com/megvii-research/NAFNet/main/nafnet.md",
+      "title": null,
+      "scrape_id": "01a1fcaa-2457-71d3-90f6-77e1bd657234",
+      "content_length": 232,
+      "retrieval_error": null,
+      "http_status": 404
+    },
+    {
+      "record": 32,
+      "url": "https://github.com/csjliang/PPR10K/blob/master/docs/dataset_usage.md",
+      "title": "PPR10K/docs/dataset_usage.md at master · csjliang/PPR10K · GitHub",
+      "scrape_id": "01a1fcaf-1798-7749-9076-8066a09404f1",
+      "content_length": 3892,
+      "retrieval_error": null,
+      "http_status": 200
+    },
+    {
+      "record": 33,
+      "url": "https://raw.githubusercontent.com/csjliang/PPR10K/master/README.md",
+      "title": null,
+      "scrape_id": "01a1fcaf-187d-7759-b3d5-38494d48fa6f",
+      "content_length": 7427,
+      "retrieval_error": null,
+      "http_status": 200
+    },
+    {
+      "record": 34,
+      "url": "https://abdokamel.github.io/sidd/files/MIT_LICENSE.txt",
+      "title": "Page not found · GitHub Pages",
+      "scrape_id": "01a1fcaf-1860-703a-a424-d29eb4b3d4be",
+      "content_length": 620,
+      "retrieval_error": null,
+      "http_status": 404
+    },
+    {
+      "record": 35,
+      "url": "https://raw.githubusercontent.com/WontaeaeKim/LUTwithBGrid/main/LICENSE",
+      "title": null,
+      "scrape_id": "01a1fcaf-183c-77cb-a8cb-098ffda9549c",
+      "content_length": 11357,
+      "retrieval_error": null,
+      "http_status": 200
+    },
+    {
+      "record": 36,
+      "url": "https://raw.githubusercontent.com/HuiZeng/Image-Adaptive-3DLUT/master/LICENSE",
+      "title": null,
+      "scrape_id": "01a1fcaf-7499-7381-b70f-075b59a86615",
+      "content_length": 11357,
+      "retrieval_error": null,
+      "http_status": 200
+    },
+    {
+      "record": 37,
+      "url": "https://raw.githubusercontent.com/mv-lab/nilut/main/LICENSE",
+      "title": null,
+      "scrape_id": "01a1fcaf-72da-759f-8c18-09ee2d8eb008",
+      "content_length": 1072,
+      "retrieval_error": null,
+      "http_status": 200
+    },
+    {
+      "record": 38,
+      "url": "https://github.com/letmaik/rawpy",
+      "title": "GitHub - letmaik/rawpy: 📷 RAW image processing for Python, a wrapper for libraw · GitHub",
+      "scrape_id": "01a1fcaf-7508-779d-9739-218226295c6f",
+      "content_length": 26146,
+      "retrieval_error": null,
+      "http_status": 200
+    }
+  ]
+}

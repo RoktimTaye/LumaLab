@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
+import type { ScrollSmoother as ScrollSmootherInstance } from 'gsap/ScrollSmoother'
 import { Link } from '@tanstack/react-router'
 import { ArrowUpRight, Check, CheckCheck, ChevronRight, Download, Image, Layers, Maximize2, ScanLine, ShieldCheck, SlidersHorizontal, Sparkles, Sun, Upload } from 'lucide-react'
 import { Header } from '../components/Header'
@@ -15,16 +16,66 @@ const features = [
 ]
 
 function SectionIntro({ label, title, copy }: { label: string; title: string; copy: string }) {
-  return <div className={styles.sectionIntro}><span className="eyebrow">{label}</span><h2>{title}</h2><p>{copy}</p></div>
+  return <div className={`${styles.sectionIntro} ${styles.scrollReveal}`}><span className="eyebrow">{label}</span><h2>{title}</h2><p>{copy}</p></div>
 }
 
 export function Home() {
+  const home = useRef<HTMLDivElement>(null)
+  const wrapper = useRef<HTMLDivElement>(null)
+  const content = useRef<HTMLDivElement>(null)
+  const smoother = useRef<ScrollSmootherInstance | null>(null)
+  useLayoutEffect(() => {
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    let cancelled = false
+    let context: { revert: () => void } | undefined
+    void Promise.all([import('gsap'), import('gsap/ScrollTrigger'), import('gsap/ScrollSmoother')]).then(([
+      { default: gsap }, { ScrollTrigger }, { ScrollSmoother },
+    ]) => {
+      if (cancelled || !wrapper.current || !content.current) return
+      gsap.registerPlugin(ScrollTrigger, ScrollSmoother)
+      context = gsap.context(() => {
+        if (!reducedMotion) smoother.current = ScrollSmoother.create({ wrapper: wrapper.current!, content: content.current!, smooth: 0.8, smoothTouch: 0.12 })
+        gsap.to(home.current, {
+          '--background-shade': 1,
+          ease: 'none',
+          scrollTrigger: {
+            trigger: content.current!.querySelector(`.${styles.showcase}`),
+            start: 'top bottom',
+            end: 'top 30%',
+            scrub: reducedMotion ? true : 0.4,
+          },
+        })
+        if (reducedMotion) return
+        gsap.utils.toArray<HTMLElement>(`.${styles.scrollReveal}`).forEach(element => {
+          gsap.set(element, { autoAlpha: 0, y: 24 })
+          const reveal = () => gsap.to(element, {
+            autoAlpha: 1, y: 0, duration: 0.7, ease: 'power2.out', overwrite: true,
+          })
+          ScrollTrigger.create({
+            trigger: element,
+            start: 'top 92%',
+            end: 'bottom 8%',
+            onEnter: reveal,
+            onEnterBack: reveal,
+            onLeave: () => gsap.to(element, { autoAlpha: 0, y: -24, duration: 0.55, ease: 'power2.in', overwrite: true }),
+            onLeaveBack: () => gsap.to(element, { autoAlpha: 0, y: 24, duration: 0.55, ease: 'power2.in', overwrite: true }),
+          })
+        })
+      }, content)
+    })
+    return () => { cancelled = true; context?.revert(); smoother.current = null }
+  }, [])
   const [preset, setPreset] = useState(1)
   const [compare, setCompare] = useState(true)
   const [split, setSplit] = useState(48)
-  return <>
+  return <div ref={home} className={styles.home}>
     {/* <div className={styles.announcement}><span className="status-dot" /> A little light. A whole new perspective. <span className={styles.announcementDivider}>/</span><Link to="/studio">Meet your new studio <ArrowRight size={12} /></Link></div> */}
-    <Header />
+    <Header onSectionNavigate={(event, id) => {
+      if (!smoother.current) return
+      event.preventDefault()
+      smoother.current.scrollTo(`#${id}`, true, 'top 100px')
+    }} />
+    <div ref={wrapper}><div ref={content}>
     <main id="main">
       <section className={`container ${styles.hero}`}>
         <div className={styles.heroTop}><div className={styles.heroCopy}>
@@ -35,7 +86,10 @@ export function Home() {
           <div className={styles.heroNote}><Check size={13} /> No account needed <span>·</span> Free to create</div>
         </div>
         <div className={styles.heroAside} aria-hidden="true"><div className={styles.lightRings}><div /><div /><div /><span>luma / light</span></div><div className={styles.colorSpectrum}><i /><i /><i /><i /></div><div className={styles.asideMeta}><span>RGBW COLOUR SYSTEM</span><span>01 — ∞</span></div></div></div>
-        <div className={styles.heroConsole}>
+      </section>
+
+      <section className={`container ${styles.showcase}`} aria-label="Interactive studio preview">
+        <div className={`${styles.heroConsole} ${styles.scrollReveal}`}>
           <div className={styles.consoleToolbar}><span className={styles.consoleTitle}><span className={styles.windowDots}><i /><i /><i /></span> LUMALAB / STUDIO PREVIEW</span><span className={styles.consoleStatus}><span className="status-dot" /> A new point of view</span></div>
           <div className={styles.demoBody}>
             <div className={styles.demoSidebar}><span className="eyebrow">YOUR CREATIVE TOOLKIT</span><div className={styles.toolActive}><SlidersHorizontal size={16} /> Adjustments</div><div><Layers size={16} /> Preset library <span>05</span></div><div><ScanLine size={16} /> Before & after</div><div className={styles.demoHint}><span className="status-dot" /> TRY A LOOK BELOW<small>One original.<br />Endless perspective.</small></div></div>
@@ -49,7 +103,7 @@ export function Home() {
 
       <section className={`container ${styles.section}`} id="about">
         <SectionIntro label="LESS FRICTION. MORE CREATION." title="Everything you need. Space to create." copy="A focused workspace for your photographs. No complicated toolbars. No steep learning curve. Just the essentials, beautifully connected." />
-        <div className={styles.identityCards}>{[
+        <div className={`${styles.identityCards} ${styles.scrollReveal}`}>{[
           { icon: Sun, title: 'Chase the light', copy: 'Recover the feeling of a moment with intuitive light and colour adjustments.', number: '01' },
           { icon: Layers, title: 'Find your signature', copy: 'Start with a considered preset. Refine the details until it feels like you.', number: '02' },
           { icon: ShieldCheck, title: 'Create with confidence', copy: 'Explore freely. Your original stays untouched, and a fresh start is one click away.', number: '03' },
@@ -58,13 +112,13 @@ export function Home() {
       </section>
 
       <section className={styles.pipelineSection}><div className="container"><SectionIntro label="BUILT AROUND YOUR ORIGINAL" title="Your vision, layer by layer." copy="Every adjustment starts with the same original photograph. Explore a new direction without losing where you began." />
-        <div className={styles.pipeline}><div className={styles.pipelineNote}><span className="eyebrow">01 / PRESERVE</span><h3>One untouched original.</h3><p>Your starting point stays intact.<br />Reset whenever inspiration changes.</p></div>
+        <div className={`${styles.pipeline} ${styles.scrollReveal}`}><div className={styles.pipelineNote}><span className="eyebrow">01 / PRESERVE</span><h3>One untouched original.</h3><p>Your starting point stays intact.<br />Reset whenever inspiration changes.</p></div>
           <svg className={styles.stack} viewBox="0 0 440 420" role="img" aria-label="Editing stages: original photograph, light, colour, detail, and final preview"><defs><linearGradient id="mintPlate" x2="1" y2="1"><stop stopColor="#94f7bc" stopOpacity=".72"/><stop offset="1" stopColor="#246c5a" stopOpacity=".2"/></linearGradient><linearGradient id="bluePlate" x2="1" y2="1"><stop stopColor="#8fafff" stopOpacity=".6"/><stop offset="1" stopColor="#24385b" stopOpacity=".2"/></linearGradient></defs><g stroke="#53625d" strokeDasharray="3 5" opacity=".45"><path d="M50 100v220M390 100v220M220 20v370" /></g>{[4,3,2,1,0].map((n) => <g key={n} transform={`translate(0 ${n * 54})`}><path d="M220 20 390 100 220 180 50 100Z" fill={n === 0 ? '#111a17' : n % 2 ? 'url(#bluePlate)' : 'url(#mintPlate)'} stroke={n % 2 ? '#8fafff' : '#94f7bc'} strokeOpacity=".55"/><path d="m50 100 170 80 170-80v7l-170 80-170-80z" fill={n % 2 ? '#8fafff' : '#94f7bc'} opacity=".12" /></g>)}<g transform="translate(200 80)" fill="none" stroke="#94f7bc" strokeWidth="1.5"><path d="m20-6 27 13-27 13L-7 7zM-7 15l27 13 27-13M-7 23l27 13 27-13"/></g></svg>
           <div className={styles.pipelineNote}><span className="eyebrow">02 / REIMAGINE</span><h3>A little more you.</h3><p>Light → colour → detail.<br />One complete, considered look.</p><Link to="/studio" className={styles.textLink}>Find your perspective <ArrowUpRight size={15} /></Link></div>
         </div></div></section>
 
       <section className={`container ${styles.features}`} id="features"><SectionIntro label="YOUR TOOLS. YOUR PERSPECTIVE." title="Make room for the remarkable." copy="Everything has a purpose. Every control is yours." />
-        {features.map((feature, index) => <article className={`${styles.featureRow} ${index % 2 ? styles.reverse : ''}`} key={feature.title}>
+        {features.map((feature, index) => <article className={`${styles.featureRow} ${styles.scrollReveal} ${index % 2 ? styles.reverse : ''}`} key={feature.title}>
           <div className={styles.featureCopy}><feature.icon size={24} /><span className="eyebrow">{feature.label}</span><h3>{feature.title.split('\n').map((line, i) => <span key={line}>{i > 0 && <br />}{line}</span>)}</h3><p>{feature.copy}</p><ul>{feature.items.map(item => <li key={item}><Check size={14} />{item}</li>)}</ul><Link to="/studio" className={styles.textLink}>Explore in the studio <ArrowUpRight size={15} /></Link></div>
           <div className={styles.featureMedia} style={{ backgroundImage: `linear-gradient(0deg,#090a0d66,#090a0d22),url(${feature.image})` }}>
             <div className={styles.featureConsole}><div className={styles.featureConsoleHeader}><feature.icon size={14} /><span>{['ADJUST YOUR PERSPECTIVE','THE PRESET LIBRARY','AUTOMATIC ENHANCEMENT','A NEW POINT OF VIEW'][index]}</span><span className="status-dot" /></div>
@@ -77,15 +131,16 @@ export function Home() {
         </article>)}
       </section>
 
-      <section className={styles.workflowSection} id="workflow"><div className="container"><SectionIntro label="FROM FIRST FRAME TO FINAL FEELING" title="A simple path to your next favourite." copy="Less time learning the tools. More time seeing what’s possible." /><ol className={styles.workflow}>{[
+      <section className={styles.workflowSection} id="workflow"><div className="container"><SectionIntro label="FROM FIRST FRAME TO FINAL FEELING" title="A simple path to your next favourite." copy="Less time learning the tools. More time seeing what’s possible." /><ol className={`${styles.workflow} ${styles.scrollReveal}`}>{[
         {icon:Upload,title:'Bring your photograph',copy:'Choose a still JPG, PNG or WebP. One moment is all it takes.'},
         {icon:SlidersHorizontal,title:'Make it your own',copy:'Choose a preset, then find the right balance with six simple controls.'},
         {icon:ScanLine,title:'See the difference',copy:'Compare with the original. Refine the details. Trust your eye.'},
         {icon:Download,title:'Take it with you',copy:'Download your edited photograph as a full-resolution JPEG.'},
       ].map((step,i)=><li key={step.title}><div><span>0{i+1}</span><step.icon size={18}/></div><h3>{step.title}</h3><p>{step.copy}</p></li>)}</ol><div className={styles.formatNote}><Image size={15}/><span>JPG, PNG & WebP <i>·</i> Up to 10 MB <i>·</i> Up to 24 megapixels</span></div></div></section>
 
-      <section className={`container ${styles.closing}`}><span className="eyebrow">SOMETHING GOOD IS ALREADY IN YOUR FRAME</span><h2>Bring it to light.</h2><p>Your next favourite photograph is waiting to happen.</p><Link to="/studio" className="button primary">Start Editing <ArrowUpRight size={17}/></Link><span className={styles.closingNote}>NO SIGN-UP. JUST YOUR PERSPECTIVE.</span></section>
+      <section className={`container ${styles.closing} ${styles.scrollReveal}`}><span className="eyebrow">SOMETHING GOOD IS ALREADY IN YOUR FRAME</span><h2>Bring it to light.</h2><p>Your next favourite photograph is waiting to happen.</p><Link to="/studio" className="button primary">Start Editing <ArrowUpRight size={17}/></Link><span className={styles.closingNote}>NO SIGN-UP. JUST YOUR PERSPECTIVE.</span></section>
     </main>
     <footer className={styles.footer}><div className={`container ${styles.footerTop}`}><div><Brand/><p>A little light. A little colour.<br/>Something entirely yours.</p></div><div><span>EXPLORE</span><Link to="/studio">Editing Studio <ArrowUpRight size={12}/></Link><a href="#features">Features</a><a href="#about">About LumaLab</a></div><div><span>THE WORKSPACE</span><Link to="/studio">Manual adjustments</Link><Link to="/studio">Preset library</Link><a href="#workflow">How it works</a></div><div className={styles.footerStatus}><span className="status-dot"/><span>YOUR EDITING STUDIO</span><p>Built for a clearer perspective.<br/>Edit, compare and export in the studio.</p></div></div><div className={`container ${styles.footerBottom}`}><span>© {new Date().getFullYear()} LumaLab. Light. Colour. Create.</span><span>MADE FOR THE WAY YOU SEE <ChevronRight size={12}/></span></div></footer>
-  </>
+    </div></div>
+  </div>
 }
