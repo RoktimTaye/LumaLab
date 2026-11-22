@@ -21,3 +21,7 @@
 .scrollReveal{opacity:0;visibility:hidden}
 @media(prefers-reduced-motion:reduce){.scrollReveal{opacity:1;visibility:visible}}
 @media(max-width:767px){.hero{min-height:100svh;padding-top:130px}.showcase{padding-top:32px}}
+.demoPhoto>div:first-child img{position:absolute;inset:0;display:block;width:100%;height:100%;object-fit:cover;object-position:center;user-select:none;pointer-events:none}
+.demoPhoto input[type=range]{touch-action:none}
+.comparisonVisual>div{aspect-ratio:900/599}
+.comparisonVisual img{position:absolute;inset:0;display:block;width:100%;height:100%;object-fit:cover;object-position:center}

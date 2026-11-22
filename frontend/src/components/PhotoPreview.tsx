@@ -19,6 +19,6 @@ export function PhotoPreview({ src, originalSrc = src, values, name, compare = f
       <img src={src} alt="" style={authoritative ? undefined : { filter }} loading={eager ? 'eager' : 'lazy'} />
       {!authoritative && <div className={styles.vignette} style={{ opacity: values.vignette / 100 }} />}
     </div>
-    {compare && <><span className={styles.beforeLabel}>ORIGINAL</span><span className={styles.afterLabel}>EDITED</span><div className={styles.splitLine} style={{ left: `${split}%` }}><span>‹ ›</span></div>{onSplit && <input className={styles.compareRange} aria-label="Before and after comparison position" type="range" min="0" max="100" value={split} onChange={e => onSplit(Number(e.target.value))} />}</>}
+    {compare && <><span className={styles.beforeLabel}>ORIGINAL</span><span className={styles.afterLabel}>EDITED</span><div className={styles.splitLine} style={{ left: `${split}%` }}><span>‹ ›</span></div>{onSplit && <input className={styles.compareRange} aria-label="Before and after comparison position" type="range" min="0" max="100" step="any" value={split} onChange={e => onSplit(Number(e.target.value))} />}</>}
   </div>
 }
