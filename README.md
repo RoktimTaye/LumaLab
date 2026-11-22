@@ -36,7 +36,7 @@ The preset catalogue includes **Original, Cinematic, Golden Hour, Monochrome and
 
 ### Automatic enhancement
 
-Auto Enhance analyzes the photograph and suggests light and colour adjustments. Users retain control of the resulting settings and can refine or reset them. Enhancement uses image analysis rather than generative image creation.
+Auto Enhance diagnoses tonal and color deficits or excesses, then balances exposure, highlights, shadow detail, black/white anchors, local definition and strong individual colors. Source-derived regional maps let darker and brighter areas receive different corrections. **Editing decisions** explains the findings and chosen actions; **Auto Enhance strength** blends the complete result with the original. Manual controls refine it afterward, and preview, crop and export share the same versioned recipe. Enhancement currently uses deterministic photographic analysis rather than a trained retouching model. Source-resolution sampling guides fine texture and medium-scale detail, with noise and edge protection. **100% detail** opens the current full-resolution export for pixel-level inspection. See [Photographic v3](docs/PHOTO_ENHANCEMENT_V3.md).
 
 ### Before-and-after comparison
 

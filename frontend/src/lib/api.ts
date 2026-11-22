@@ -2,6 +2,8 @@ import type { components } from './api.generated'
 
 export type Adjustments = components['schemas']['Adjustments']
 export type Enhancement = components['schemas']['Enhancement']
+export type NaturalEnhancement = components['schemas']['NaturalEnhancement']
+export type EnhancementFinding = components['schemas']['EnhancementFinding']
 export type Preset = components['schemas']['Preset']
 export type UploadedImage = components['schemas']['UploadedImage']
 
@@ -91,11 +93,12 @@ export async function getPreview(
   adjustments: Adjustments,
   signal?: AbortSignal,
   crop?: components['schemas']['Crop'] | null,
+  enhancement?: NaturalEnhancement | null,
 ): Promise<{ blob: Blob; revision: string | null }> {
   const response = await request(`${imagePath(imageId)}/preview`, 'POST', {
     token,
     signal,
-    json: { revision, adjustments, crop },
+    json: { revision, adjustments, crop, enhancement },
   })
   return { blob: await response.blob(), revision: response.headers.get('X-Image-Revision') }
 }
@@ -111,11 +114,12 @@ export async function exportImage(
   adjustments: Adjustments,
   signal?: AbortSignal,
   crop?: components['schemas']['Crop'] | null,
+  enhancement?: NaturalEnhancement | null,
 ): Promise<{ blob: Blob; contentDisposition: string | null }> {
   const response = await request(`${imagePath(imageId)}/export`, 'POST', {
     token,
     signal,
-    json: { adjustments, crop, format: 'jpeg', quality: 92 },
+    json: { adjustments, crop, enhancement, format: 'jpeg', quality: 92 },
   })
   return { blob: await response.blob(), contentDisposition: response.headers.get('Content-Disposition') }
 }

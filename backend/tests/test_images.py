@@ -384,6 +384,9 @@ class ImageTests(unittest.TestCase):
         store.processing.acquire()
         try:
             self.assertEqual(self.upload()[0], 429)
+            with patch("app.routes.images.enhance") as analyzer:
+                self.assertEqual(self.request("POST", path + "/enhance", token=session["access_token"])[0], 429)
+                analyzer.assert_not_called()
         finally:
             store.processing.release()
         store.sessions[session["image_id"]].expires_at = datetime.now(timezone.utc) - timedelta(seconds=1)
@@ -1213,6 +1216,53 @@ class ImageTests(unittest.TestCase):
         self.assertLessEqual(abs(values.saturation - 100), 1)
         self.assertLessEqual(abs(values.warmth), 1)
         self.assertEqual((values.sharpness, values.vignette), (0, 0))
+
+    def test_photographic_recipe_round_trip_zero_strength_crop_and_export(self):
+        source = Image.linear_gradient("L").resize((80, 80)).point(lambda value: int(value * 0.5 + 10)).convert("RGB")
+        output = BytesIO()
+        source.save(output, "PNG")
+        session = json.loads(self.upload(output.getvalue())[2])
+        path, token = f'/api/v1/images/{session["image_id"]}', session["access_token"]
+        directory = self.app.state.image_store.sessions[session["image_id"]].directory
+        baseline = (directory / "original").read_bytes()
+        status, _, data = self.request("POST", path + "/enhance", token=token)
+        self.assertEqual(status, 200)
+        recipe = json.loads(data)["recipe"]
+        self.assertEqual(recipe["version"], "natural-v3")
+        self.assertTrue(json.loads(data)["assessment"])
+        payload = {"revision": 11, "adjustments": NEUTRAL, "enhancement": recipe}
+        status, headers, enhanced = self.request("POST", path + "/preview", json.dumps(payload).encode(), "application/json", token)
+        self.assertEqual((status, headers[b"x-image-revision"]), (200, b"11"))
+        original = self.request("GET", path + "/original-preview", token=token)[2]
+        self.assertNotEqual(enhanced, original)
+        payload["enhancement"] = {**recipe, "strength": 0.0}
+        self.assertEqual(self.request("POST", path + "/preview", json.dumps(payload).encode(), "application/json", token)[2], original)
+        status, _, exported = self.request("POST", path + "/export", json.dumps({
+            "adjustments": NEUTRAL, "enhancement": recipe,
+            "crop": {"x": 8, "y": 16, "width": 48, "height": 48},
+        }).encode(), "application/json", token)
+        self.assertEqual(status, 200)
+        with Image.open(BytesIO(exported)) as image:
+            self.assertEqual(image.size, (48, 48))
+            self.assertIn("icc_profile", image.info)
+            self.assertFalse(image.getexif())
+        self.assertEqual((directory / "original").read_bytes(), baseline)
+        self.assertEqual(self.request("POST", path + "/enhance", token=token)[2], data)
+
+    def test_invalid_photographic_recipes_are_rejected_before_processing(self):
+        session = json.loads(self.upload()[2])
+        for operation in ("preview", "export"):
+            for recipe in ({"version": "other"}, {"strength": 2.0}, {"red_gain": 5.0},
+                           {"exposure_ev": float("nan")}, {"shadows": -0.5}, {"strength": True},
+                           {"path": "../private"}):
+                body = {"adjustments": NEUTRAL, "enhancement": recipe}
+                if operation == "preview":
+                    body["revision"] = 1
+                with patch("app.routes.images.render") as renderer:
+                    status, _, _ = self.request("POST", f'/api/v1/images/{session["image_id"]}/{operation}',
+                        json.dumps(body).encode(), "application/json", session["access_token"])
+                    self.assertEqual(status, 422, recipe)
+                    renderer.assert_not_called()
 
 
 if __name__ == "__main__":

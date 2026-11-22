@@ -61,7 +61,7 @@ class ImageRoute(APIRoute):
                     client = request.client.host if request.client else "unknown"
                     if limiter is not None and not limiter.allow(client):
                         raise ImageError(429, "upload_rate_exceeded", "Upload limit reached. Wait one minute before uploading again.", retry_after=60)
-                permit = (store.processing if self.name in {"upload", "export"} else
+                permit = (store.processing if self.name in {"upload", "export", "automatic_enhancement"} else
                           None if self.name == "delete" else store.previews)
                 if permit is not None and not permit.acquire(blocking=False):
                     raise ImageError(429, "capacity_exceeded", "Image processing is busy. Wait a moment, then try again.", retry_after=1)
@@ -141,16 +141,16 @@ def original_preview(image_id: str, request: Request, token: Token):
 def preview(image_id: str, body: PreviewRequest, request: Request, token: Token):
     with request.app.state.image_store.authorized(image_id, token) as session:
         data = render(session.directory / "preview.png", body.adjustments, request.app.state.settings, preview=True,
-                      crop=body.crop, original_size=(session.width, session.height))
+                      crop=body.crop, original_size=(session.width, session.height), enhancement=body.enhancement)
     return Response(data, media_type="image/jpeg", headers={"X-Image-Revision": str(body.revision)})
 
 
 @router.post("/{image_id}/enhance", response_model=Enhancement,
-             summary="Suggest complete adjustments from the original",
+             summary="Analyze original tones and suggest a versioned photographic enhancement",
              responses={**SESSION_ERRORS, 200: {"headers": CACHE_HEADERS}})
 def automatic_enhancement(image_id: str, request: Request, token: Token):
     with request.app.state.image_store.authorized(image_id, token) as session:
-        return enhance(session.directory / "analysis.png")
+        return enhance(session.directory / "preview.png", detail_path=session.directory / "normalized.png")
 
 
 @router.post("/{image_id}/export", response_class=Response,
@@ -161,7 +161,8 @@ def automatic_enhancement(image_id: str, request: Request, token: Token):
 def export(image_id: str, body: ExportRequest, request: Request, token: Token):
     with request.app.state.image_store.authorized(image_id, token) as session:
         data = render(session.directory / "normalized.png", body.adjustments, request.app.state.settings,
-                      preview=False, quality=body.quality, crop=body.crop, original_size=(session.width, session.height))
+                      preview=False, quality=body.quality, crop=body.crop, original_size=(session.width, session.height),
+                      enhancement=body.enhancement)
         stem = re.sub(r"[^A-Za-z0-9_-]+", "-", Path(session.filename).stem).strip("-")[:80] or "image"
     return Response(data, media_type="image/jpeg", headers={
         "Content-Disposition": f'attachment; filename="lumalab-{stem}.jpg"',

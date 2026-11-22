@@ -48,7 +48,9 @@ Use `npm ci` with the committed `frontend/package-lock.json`. The stack is React
 - Load Original, Cinematic, Golden Hour, Monochrome and Vivid from `/api/v1/presets`. Presets replace every adjustment; manual changes mark the selection Custom. Show an unavailable message when preset retrieval fails.
 - Render Studio edits through the API. The Home demo uses a local CSS/SVG approximation and is not the authoritative image renderer.
 - Keep the last successful preview while another is pending or fails, mark outdated previews, and apply a response only when its session, revision and edit state still match. Abort or ignore obsolete work.
-- Auto Enhance applies returned settings only on success. Failed enhancement preserves edits and supports explicit retry. Compare changes only the display; it does not edit settings or request a new render.
+- Auto Enhance applies returned manual settings and a separate `NaturalEnhancement` recipe only on success. Keep that recipe in preview/export identity and send it as `enhancement` for both operations. The strength slider blends the entire automatic correction; manual sliders refine the base. Presets/reset/replacement clear it, crop preserves it, and a late enhancement cannot overwrite newer manual edits. Failed enhancement preserves edits and supports explicit retry. Compare changes only the display; it does not edit settings or request a new render.
+- Display the returned `assessment` as Editing decisions. Optional observations explain the source evidence, including native-resolution detail sampling. It describes the automatic base; manual edits remain independent. Preserve the regional field/guide arrays in the recipe, and clear the findings when the automatic layer is cleared. A zero-strength layer shows that automatic corrections are off.
+- **100% detail** opens a modal with the current full-resolution JPEG at natural CSS pixel dimensions, with scrolling on desktop/mobile. It uses the export endpoint and an immutable settings snapshot. Loading/failure states, Escape/close, focus restoration, aborted requests and blob URL cleanup are handled. A deferred request avoids duplicate expensive renders during React StrictMode probes.
 - Export waits for a successful preview of the current state, submits an immutable settings snapshot and downloads the full-resolution backend JPEG.
 - Commit a replacement only after upload and original preview succeed. Failed replacement preserves the existing image/edits. Successful replacement resets editor state, disposes obsolete URLs and requests deletion of the old session.
 - Store tokens and editor settings only in memory. Send tokens only through Authorization headers. Closing/replacing Studio cleans up best effort; backend expiry remains the fallback. Restarted/expired sessions require a new upload.
@@ -58,7 +60,7 @@ Use `npm ci` with the committed `frontend/package-lock.json`. The stack is React
 
 `src/lib/api.ts` centralizes relative `/api/v1` requests, bearer headers, `AbortSignal`, JSON errors and binary responses. Use it for new UI operations. Errors are `ApiError` instances carrying status and optional backend code. The server envelope is `{"error":{"code":"...","message":"..."}}`.
 
-Send uploads as `FormData` with a part named `file`; let the browser supply the multipart boundary. Preview/export use JSON with all six adjustments. Preview requests include a nonnegative revision; successful responses echo it in `X-Image-Revision`. Original preview, edited preview and export return JPEG bytes directly. Export includes `Content-Disposition`; deletion returns an empty 204.
+Send uploads as `FormData` with a part named `file`; let the browser supply the multipart boundary. Preview/export use JSON with all six adjustments, optional crop, and the accepted optional photographic enhancement recipe. Do not reduce the recipe to approximate values in the six manual sliders. Preview requests include a nonnegative revision; successful responses echo it in `X-Image-Revision`. Original preview, edited preview and export return JPEG bytes directly. Export includes `Content-Disposition`; deletion returns an empty 204.
 
 Image operations require the image-specific token returned by upload. Use blob URLs for authorized image responses and release them on replacement/unmount or after download. `imageResponse.ts` rejects errors and non-JPEG responses before allocating a URL. Do not place private image data in persistent storage or token-bearing URLs.
 
@@ -89,6 +91,8 @@ uv run --locked python -m scripts.e2e_server
 ```
 
 The test API binds to loopback port 8000, uses a test preset catalogue and temporary image storage, and exposes a test-only session reset route. Stop any normal backend already using that port. Never use this entry point in deployment.
+
+To preserve a running editor, use an isolated backend with `uv run --locked python -m scripts.e2e_server --port 8011`. In the frontend test terminal set `$env:LUMALAB_TEST_API = "http://127.0.0.1:8011"` and `$env:PLAYWRIGHT_PORT = "4175"` before running Playwright. The fixture reset and Vite proxy then target the isolated backend only. Clear those terminal environment overrides before returning to normal development.
 
 Then, from `frontend/`, in PowerShell:
 

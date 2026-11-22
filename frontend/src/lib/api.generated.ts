@@ -1,17 +1,19 @@
 // Generated from backend OpenAPI; run npm run contracts:generate. Do not edit.
-// Schema SHA-256: a33936c7aaa2c674ce883a1eb081d70aa606ef8bc0b8e75fc6df95a43d3983ca
+// Schema SHA-256: eda9e3b575225ed6dae4e7b4823187a35e8e8c6f1209c54dbd92b4453afb529f
 export interface components {
   schemas: {
     "Adjustments": { "brightness": number; "contrast": number; "saturation": number; "warmth": number; "sharpness": number; "vignette": number };
     "Body_upload_api_v1_images_post": { "file": Blob };
     "Crop": { "x": number; "y": number; "width": number; "height": number };
-    "Enhancement": { "adjustments": components["schemas"]["Adjustments"]; "message": string };
+    "Enhancement": { "adjustments": components["schemas"]["Adjustments"]; "message": string; "recipe"?: components["schemas"]["NaturalEnhancement"] | null; "assessment"?: Array<components["schemas"]["EnhancementFinding"]> };
+    "EnhancementFinding": { "area": "light" | "contrast" | "color" | "detail"; "issue": string; "action": string; "observation"?: string };
     "ErrorDetail": { "code": string; "message": string };
     "ErrorResponse": { "error": components["schemas"]["ErrorDetail"] };
-    "ExportRequest": { "adjustments": components["schemas"]["Adjustments"]; "crop"?: components["schemas"]["Crop"] | null; "format"?: "jpeg"; "quality"?: 92 };
+    "ExportRequest": { "adjustments": components["schemas"]["Adjustments"]; "crop"?: components["schemas"]["Crop"] | null; "enhancement"?: components["schemas"]["NaturalEnhancement"] | null; "format"?: "jpeg"; "quality"?: 92 };
     "HealthResponse": { "status"?: "ready" };
+    "NaturalEnhancement": { "version"?: "natural-v1" | "natural-v2" | "natural-v3"; "strength"?: number; "exposure_ev"?: number; "shadows"?: number; "highlights"?: number; "contrast"?: number; "vibrance"?: number; "red_gain"?: number; "green_gain"?: number; "blue_gain"?: number; "black_point"?: number; "white_lift"?: number; "tone_contrast"?: number; "clarity"?: number; "texture"?: number; "microcontrast"?: number; "detail_noise"?: number; "detail_reference_edge"?: number; "hue_chroma"?: Array<number>; "local_exposure"?: Array<number>; "base_luminance"?: Array<number> };
     "Preset": { "preset_id": string; "preset_name": string; "description": string; "brightness": number; "contrast": number; "saturation": number; "warmth": number; "sharpness": number; "vignette": number };
-    "PreviewRequest": { "revision": number; "adjustments": components["schemas"]["Adjustments"]; "crop"?: components["schemas"]["Crop"] | null };
+    "PreviewRequest": { "revision": number; "adjustments": components["schemas"]["Adjustments"]; "crop"?: components["schemas"]["Crop"] | null; "enhancement"?: components["schemas"]["NaturalEnhancement"] | null };
     "UnavailableError": { "code"?: "service_unavailable"; "message"?: string };
     "UnavailableResponse": { "error": components["schemas"]["UnavailableError"] };
     "UploadedImage": { "image_id": string; "access_token": string; "filename": string; "format": "JPEG" | "PNG" | "WEBP"; "width": number; "height": number; "expires_at": string };

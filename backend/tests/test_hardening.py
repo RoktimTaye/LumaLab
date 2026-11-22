@@ -157,4 +157,8 @@ class HardeningTests(unittest.TestCase):
                     image = Image.fromarray(np.clip(np.asarray(image, dtype=np.float32) * mask[:, :, None], 0, 255).astype(np.uint8))
                     expected = BytesIO()
                     image.save(expected, "JPEG", quality=settings.jpeg_quality)
-                    self.assertEqual(render(path, values, settings, preview=False), expected.getvalue())
+                    # Output now embeds sRGB ICC metadata. Compare decoded
+                    # pixels so this still guards the legacy filter ordering.
+                    with (Image.open(BytesIO(render(path, values, settings, preview=False))) as actual,
+                          Image.open(BytesIO(expected.getvalue())) as previous):
+                        np.testing.assert_array_equal(np.asarray(actual), np.asarray(previous))

@@ -98,9 +98,9 @@ All paths below are under `/api/v1`. The live OpenAPI schema is the detailed con
 | GET | `/presets` | Validated preset array from PostgreSQL |
 | POST | `/images` | Multipart `file`; 201 with `image_id`, `access_token`, `filename`, `format`, `width`, `height`, `expires_at` |
 | GET | `/images/{image_id}/original-preview` | Normalized original as JPEG |
-| POST | `/images/{image_id}/preview` | JSON `{revision, adjustments}`; JPEG with matching `X-Image-Revision` |
-| POST | `/images/{image_id}/enhance` | JSON response `{adjustments, message}` |
-| POST | `/images/{image_id}/export` | JSON `{adjustments, format: "jpeg", quality: 92}`; full-resolution JPEG attachment |
+| POST | `/images/{image_id}/preview` | JSON `{revision, adjustments, crop?, enhancement?}`; JPEG with matching `X-Image-Revision` |
+| POST | `/images/{image_id}/enhance` | JSON response `{adjustments, recipe, assessment, message}`; source-derived `natural-v3` recipe |
+| POST | `/images/{image_id}/export` | JSON `{adjustments, crop?, enhancement?, format: "jpeg", quality: 92}`; full-resolution JPEG attachment |
 | DELETE | `/images/{image_id}` | 204, empty body |
 
 Every operation on an existing image requires `Authorization: Bearer <access_token>`. Upload, health and presets are public. Tokens are image-specific; query strings, cookies and JSON fields do not authorize access. Private responses use `Cache-Control: no-store`. JPEG responses are binary bytes, with safe attachment filenames for export.
@@ -116,7 +116,13 @@ Every adjustment object contains all six strict integer fields; extra fields, fl
 | `sharpness` | 0–100 | 0 |
 | `vignette` | 0–100 | 0 |
 
-The render order is brightness, contrast, saturation, warmth, sharpness and vignette. Preview revisions are nonnegative client request identifiers echoed by the server; they do not represent stored edit history.
+When present, the versioned `enhancement` recipe runs first: float32, linear-light exposure/tone adjustments, conservative white-balance gains, vibrance and smooth gamut compression. Strength blends the complete correction with the original encoded sRGB pixels; zero is exactly neutral. The existing manual render order then follows: brightness, contrast, saturation, warmth, sharpness and vignette. Original input precision remains that of the normalized RGB source; this is not a high-bit-depth RAW decoder. JPEG output embeds sRGB ICC while omitting source EXIF/GPS. Preview revisions are nonnegative client request identifiers echoed by the server; they do not represent stored edit history.
+
+Auto Enhance uses the whole uncropped original preview (up to 768 pixels per edge for tonal analysis), luminance quantiles, regional lighting, hue-specific saturation, plausible neutral-color evidence and resized-image noise/structure indicators. It can correct deficits and excesses: brighten or darken, add or soften midtone contrast, deepen lifted black levels, and reduce excessive individual colors. It limits correction for low/high-key scenes and backs off if the candidate introduces excessive new clipping or blocked blacks. It returns neutral manual `adjustments`; clients must submit the returned `recipe` as `enhancement` on both preview and export to apply the photographic result. No server-side recipe history is stored, and repeated analysis does not compound prior edits. Recipe fields are strict, finite and bounded; `version` accepts `natural-v1` (legacy renderer) and `natural-v2` (previous photographic renderer), and `natural-v3` (current source-scale detail renderer). Legacy requests that omit `enhancement` keep their existing manual behavior.
+
+V2 stores a fixed 8×8 regional exposure field and, when local contrast is justified, a 32×32 luminance guide. Bilinear sampling uses full-source pixel-center coordinates. Crop/strip rendering passes its full-source region, so maps are not stretched or re-estimated after cropping. Luminance guidance limits shadow lifts on bright objects and highlight darkening on dark objects. Per-hue chroma controls contain six bounded values; local-exposure/guide arrays must be empty or exactly 64/1024 finite values. Clarity requires its guide. These source-derived fields are private recipe data and are transmitted only through the authenticated image workflow.
+
+This is a deterministic photographic controller, not a pretrained model or a demonstrated Lightroom equivalent. See [implementation and verification](docs/PHOTO_ENHANCEMENT_V3.md). Native float intermediates use 64-row cores plus overlapping original-pixel halos. Tonal analysis is bounded to 768 pixels per edge. V3 also samples up to five native 256×256 patches from the normalized source for texture, edge and noise evidence. Sampling does not guarantee scene-wide noise estimation or semantic segmentation. Bounded fine/medium luminance bands protect strong edges, noisy or smooth regions, extreme tones and warm moderately saturated colors; the latter is a hue proxy, not face detection. V3 texture/noise fields are rejected on older recipe versions. The optional 100% detail viewer uses the existing authenticated full-resolution export endpoint.
 
 Errors use `{"error":{"code":"...","message":"..."}}` without raw exception or input details. Expected statuses include 400 malformed multipart, 401 invalid token, 404 unavailable session, 410 known expired session, 413 size limit, 415 unsupported/mismatched/animated format, 422 invalid request/image, 429 rate/capacity limit, 500 processing failure and 503 unavailable resource. Purged expired sessions return 404. Applicable errors include `WWW-Authenticate` or `Retry-After` headers.
 
@@ -142,7 +148,7 @@ Errors use `{"error":{"code":"...","message":"..."}}` without raw exception or i
 | `JPEG_QUALITY` | 92; the current export contract accepts only quality 92 |
 | `ALLOWED_ORIGINS` | `[]`; exact JSON origin list for separate frontend hosting |
 
-Each process supports at most 32 sessions, one heavy upload/export operation and two preview/enhancement operations concurrently. Busy/full requests receive 429. Session retirement waits for active readers before deleting files. Keep one worker and one replica because sessions, limits and processing permits are process-local.
+Each process supports at most 32 sessions, one heavy upload/export/source-analysis operation and two preview operations concurrently. Busy/full requests receive 429. Session retirement waits for active readers before deleting files. Keep one worker and one replica because sessions, limits and processing permits are process-local.
 
 For separate origins, configure e.g. `ALLOWED_ORIGINS=["http://localhost:5173","http://127.0.0.1:5173"]` and restart. CORS exposes `X-Image-Revision` and `Content-Disposition`, permits the required methods/headers and disables cookie credentials.
 

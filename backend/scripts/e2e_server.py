@@ -37,7 +37,13 @@ async def test_lifespan(app):
 
 
 def main():
+    import argparse
     import uvicorn
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--port", type=int, default=8000)
+    args = parser.parse_args()
+    if not 1 <= args.port <= 65535:
+        parser.error("port must be between 1 and 65535")
     def reset(request):
         store = app.state.image_store
         with store.lock:
@@ -51,7 +57,7 @@ def main():
     # production SPA mount. It never appears in app.main or app.deploy.
     app.router.routes.insert(0, Route("/__test/reset", reset, methods=["POST"]))
     app.router.lifespan_context = test_lifespan
-    uvicorn.run(application, host="127.0.0.1", port=8000, access_log=False)
+    uvicorn.run(application, host="127.0.0.1", port=args.port, access_log=False)
 
 
 if __name__ == "__main__":

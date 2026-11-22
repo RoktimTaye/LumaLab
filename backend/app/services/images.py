@@ -10,7 +10,10 @@ import numpy as np
 from PIL import Image, ImageCms, ImageEnhance, ImageFilter, ImageOps, ImageStat, UnidentifiedImageError
 
 from app.config import Settings
-from app.schemas.images import Adjustments, Crop, Enhancement
+from app.schemas.images import Adjustments, Crop, Enhancement, NaturalEnhancement
+from app.services.enhancement import analyze, apply as apply_enhancement
+
+SRGB_PROFILE = ImageCms.ImageCmsProfile(ImageCms.createProfile("sRGB")).tobytes()
 
 
 class ImageError(Exception):
@@ -60,7 +63,8 @@ def normalize(data: bytes, filename: str, settings: Settings) -> tuple[Image.Ima
 
 
 def render(path: Path, adjustments: Adjustments | None, settings: Settings, *, preview: bool, quality: int | None = None,
-           crop: Crop | None = None, original_size: tuple[int, int] | None = None) -> bytes:
+           crop: Crop | None = None, original_size: tuple[int, int] | None = None,
+           enhancement: NaturalEnhancement | None = None) -> bytes:
     # Validate before decoding or allocating cropped pixels. Never allow Pillow
     # to pad out-of-bounds requests or allocate a caller-selected larger image.
     if crop is not None:
@@ -72,18 +76,22 @@ def render(path: Path, adjustments: Adjustments | None, settings: Settings, *, p
         source = image
         image = source.convert("RGB")
         source.close()
+    region = (0.0, 0.0, 1.0, 1.0)
     if crop is not None:
         width, height = original_size
         left = min(image.width - 1, round(crop.x * image.width / width))
         top = min(image.height - 1, round(crop.y * image.height / height))
         right = min(image.width, max(left + 1, round((crop.x + crop.width) * image.width / width)))
         bottom = min(image.height, max(top + 1, round((crop.y + crop.height) * image.height / height)))
+        region = (left / image.width, top / image.height, right / image.width, bottom / image.height)
         if (left, top, right, bottom) != (0, 0, image.width, image.height):
             source = image
             image = source.crop((left, top, right, bottom))
             source.close()
     if preview:
         image.thumbnail((settings.preview_max_edge, settings.preview_max_edge), Image.Resampling.LANCZOS)
+    if enhancement is not None:
+        apply_enhancement(image, enhancement, region=region)
     if adjustments is not None:
         # Match Pillow's blend rounding using tiny lookup tables. Contrast uses
         # the same global luminance mean as ImageEnhance.Contrast.
@@ -133,27 +141,11 @@ def render(path: Path, adjustments: Adjustments | None, settings: Settings, *, p
                     pixels = np.asarray(tile, dtype=np.float32) * mask[:, :, None]
                     image.paste(Image.fromarray(np.clip(pixels, 0, 255).astype(np.uint8)), (0, top))
     output = BytesIO()
-    image.save(output, format="JPEG", quality=settings.jpeg_quality if quality is None else quality)
+    image.save(output, format="JPEG", quality=settings.jpeg_quality if quality is None else quality,
+               icc_profile=SRGB_PROFILE)
     image.close()
     return output.getvalue()
 
 
-def enhance(path: Path) -> Enhancement:
-    with Image.open(path) as source:
-        image = source.convert("RGB")
-        image.thumbnail((512, 512))
-    import cv2
-
-    pixels = np.asarray(image)
-    gray = cv2.cvtColor(pixels, cv2.COLOR_RGB2GRAY)
-    hsv = cv2.cvtColor(pixels, cv2.COLOR_RGB2HSV)
-    mean, spread = float(gray.mean()), float(gray.std())
-    channels = pixels.mean(axis=(0, 1))
-    values = Adjustments(
-        brightness=int(np.clip(100 + (128 - mean) * 0.25, 80, 125)),
-        contrast=int(np.clip(100 + (50 - spread) * 0.4, 90, 120)),
-        saturation=int(np.clip(100 + (90 - float(hsv[:, :, 1].mean())) * 0.15, 90, 115)),
-        warmth=int(np.clip((channels[2] - channels[0]) * 0.1, -15, 15)),
-        sharpness=0, vignette=0,
-    )
-    return Enhancement(adjustments=values, message="Suggested light and colour adjustments are ready for preview.")
+def enhance(path: Path, *, detail_path: Path | None = None) -> Enhancement:
+    return analyze(path, detail_path=detail_path)
