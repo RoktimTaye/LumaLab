@@ -1,8 +1,8 @@
 // Generated from backend OpenAPI; run npm run contracts:generate. Do not edit.
-// Schema SHA-256: 50b3a1622e34928c9c13d81fd2011de71334b3230cdbe59c9d636672453a15ad
+// Schema SHA-256: a95d6f621a3ea0c67655abf8ce85efc6ec26e081354aa9c2ea019ebe7f9a92a2
 export interface components {
   schemas: {
-    "Adjustments": { "brightness": number; "contrast": number; "saturation": number; "warmth": number; "sharpness": number; "vignette": number };
+    "Adjustments": { "brightness": number; "contrast": number; "saturation": number; "warmth": number; "tint"?: number; "exposure"?: number; "highlights"?: number; "shadows"?: number; "ambience"?: number; "structure"?: number; "rotation"?: 0 | 90 | 180 | 270; "straighten"?: number; "flip_horizontal"?: boolean; "flip_vertical"?: boolean; "sharpness": number; "vignette": number };
     "Body_upload_api_v1_images_post": { "file": Blob };
     "Crop": { "x": number; "y": number; "width": number; "height": number };
     "CurvePoint": { "x": number; "y": number };
@@ -100,7 +100,7 @@ export interface paths {
     get: {
       parameters: { path: { "image_id": string } };
       responses: {
-        "200": { headers: { "Cache-Control"?: "no-store" }; content: { "image/jpeg": Blob } };
+        "200": { headers: { "Cache-Control"?: "no-store" }; content: { "image/jpeg": Blob; "image/png": Blob } };
         "400": { headers: { "Cache-Control"?: "no-store" }; content: { "application/json": components["schemas"]["ErrorResponse"] } };
         "401": { headers: { "Cache-Control"?: "no-store"; "WWW-Authenticate"?: "Bearer" }; content: { "application/json": components["schemas"]["ErrorResponse"] } };
         "404": { headers: { "Cache-Control"?: "no-store" }; content: { "application/json": components["schemas"]["ErrorResponse"] } };

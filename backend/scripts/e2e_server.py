@@ -31,6 +31,7 @@ async def test_lifespan(app):
         app.state.upload_rate_limit = UploadRateLimit(1000)
         catalogue = [Preset.model_validate(dict(zip(Preset.model_fields, row, strict=True))) for row in PRESETS]
         with (patch("app.routes.presets.get_presets", return_value=catalogue),
+              patch("app.routes.presets.get_preset", side_effect=lambda pool, timeout, preset_id: next((item for item in catalogue if item.preset_id == preset_id), None)),
               patch("app.routes.health.database_available", return_value=True),
               patch("app.routes.health.storage_available", return_value=True)):
             yield

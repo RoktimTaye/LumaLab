@@ -126,11 +126,15 @@ def upload(request: Request, file: UploadFile):
 
 @router.get("/{image_id}/original-preview", response_class=Response,
             summary="Read the normalized original preview",
-            responses={**SESSION_ERRORS, 200: JPEG_RESPONSE})
+            responses={**SESSION_ERRORS, 200: {**JPEG_RESPONSE, "content": {
+                **JPEG_RESPONSE["content"], "image/png": {"schema": {"type": "string", "format": "binary"}},
+            }}})
 def original_preview(image_id: str, request: Request, token: Token):
+    lossless = "image/png" in request.headers.get("accept", "")
     with request.app.state.image_store.authorized(image_id, token) as session:
-        data = render(session.directory / "preview.png", None, request.app.state.settings, preview=True)
-    return Response(data, media_type="image/jpeg")
+        data = ((session.directory / "preview.png").read_bytes() if lossless else
+                render(session.directory / "preview.png", None, request.app.state.settings, preview=True))
+    return Response(data, media_type="image/png" if lossless else "image/jpeg", headers={"Vary": "Accept"})
 
 
 @router.post("/{image_id}/preview", response_class=Response,

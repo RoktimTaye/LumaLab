@@ -1,0 +1,6 @@
+.histogram{color:var(--text);font:400 11px/1.4 var(--font-body)}
+.heading{display:flex;align-items:center;justify-content:space-between;gap:6px;font-weight:500}.heading>span{font-size:9px;color:var(--muted);font-weight:400}
+.graph{display:block;width:100%;height:auto;max-height:64px;margin-top:6px;color:var(--text);opacity:.85}
+.histogram p{font:400 10px/1.5 var(--font-body);color:var(--body);margin:5px 0 0}
+.clipping{display:flex;justify-content:space-between;flex-wrap:wrap;gap:2px 8px}
+@media(max-width:767px){.histogram{font-size:10px}.graph{max-height:40px}.histogram p{font-size:9px}.heading{flex-wrap:wrap}.heading>span{font-size:8px}}

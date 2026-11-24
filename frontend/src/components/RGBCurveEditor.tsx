@@ -7,8 +7,8 @@ import styles from './RGBCurveEditor.module.css'
 const COLORS = { rgb: '#e4ece6', red: '#ff8d96', green: '#94f7bc', blue: '#8ebcff' }
 const LABELS = { rgb: 'RGB', red: 'Red', green: 'Green', blue: 'Blue' }
 
-export function RGBCurveEditor({ value, disabled, onChange, onCommit }: {
-  value: RGBCurves; disabled: boolean; onChange: (value: RGBCurves) => void; onCommit: () => void
+export function RGBCurveEditor({ value, disabled, onChange, onCommit, forceOpen = false }: {
+  value: RGBCurves; forceOpen?: boolean; disabled: boolean; onChange: (value: RGBCurves) => void; onCommit: () => void
 }) {
   const id = useId()
   const [channel, setChannel] = useState<CurveChannel>('rgb')
@@ -47,7 +47,7 @@ export function RGBCurveEditor({ value, disabled, onChange, onCommit }: {
     setSelected(gap+1)
     onChange({ ...value, [channel]: { points: next } })
   }
-  return <details className={styles.section}>
+  return <details className={styles.section} open={forceOpen || undefined}>
     <summary>RGB Curves<span>POINT CURVE</span></summary>
     <fieldset disabled={disabled} className={styles.controls}>
       <legend className="sr-only">RGB curve controls</legend>

@@ -1,9 +1,9 @@
 import type { components } from './api.generated'
 
 export type Adjustments = components['schemas']['Adjustments']
-export type AdjustmentKey = keyof Adjustments
+export type AdjustmentKey = Exclude<keyof Adjustments, 'flip_horizontal' | 'flip_vertical'>
 export type Preset = { name: string; description: string; values: Adjustments; category: string; popular?: boolean }
-export const NEUTRAL: Adjustments = { brightness: 100, contrast: 100, saturation: 100, warmth: 0, sharpness: 0, vignette: 0 }
+export const NEUTRAL: Adjustments = { brightness: 100, contrast: 100, saturation: 100, warmth: 0, tint: 0, exposure: 0, highlights: 0, shadows: 0, ambience: 0, structure: 0, rotation: 0, straighten: 0, flip_horizontal: false, flip_vertical: false, sharpness: 0, vignette: 0 }
 const preset = (name: string, description: string, category: string, brightness: number, contrast: number, saturation: number, warmth: number, sharpness: number, vignette: number, popular = false): Preset => ({ name, description, category, popular, values: { brightness, contrast, saturation, warmth, sharpness, vignette } })
 export const PRESETS: Preset[] = [
   preset('Original', 'Just as you captured it', 'Essentials', 100, 100, 100, 0, 0, 0, true),
@@ -46,10 +46,10 @@ export const PRESET_GROUPS = [
   { name: 'Most Popular', presets: PRESETS.filter(item => item.popular) },
   ...['Portrait', 'Landscape', 'Film & Vintage', 'Black & White', 'Creative', 'Essentials'].map(name => ({ name, presets: PRESETS.filter(item => item.category === name && (name === 'Essentials' || !item.popular)) })),
 ]
-export const CONTROL_GROUPS: { name: string; color: string; controls: { key: AdjustmentKey; label: string; min: number; max: number }[] }[] = [
-  { name: 'Light', color: 'var(--red)', controls: [{ key: 'brightness', label: 'Brightness', min: 0, max: 200 }, { key: 'contrast', label: 'Contrast', min: 0, max: 200 }] },
-  { name: 'Colour', color: 'var(--green)', controls: [{ key: 'saturation', label: 'Saturation', min: 0, max: 200 }, { key: 'warmth', label: 'Warmth', min: -50, max: 50 }] },
-  { name: 'Detail', color: 'var(--blue)', controls: [{ key: 'sharpness', label: 'Sharpness', min: 0, max: 100 }, { key: 'vignette', label: 'Vignette', min: 0, max: 100 }] },
+export const CONTROL_GROUPS: { name: string; color: string; controls: { key: AdjustmentKey; label: string; min: number; max: number; step?: number }[] }[] = [
+  { name: 'Light', color: 'var(--red)', controls: [{ key: 'exposure', label: 'Exposure (EV)', min: -3, max: 3, step: .1 }, { key: 'highlights', label: 'Highlights', min: -100, max: 100 }, { key: 'shadows', label: 'Shadows', min: -100, max: 100 }, { key: 'ambience', label: 'Ambience', min: -100, max: 100 }, { key: 'brightness', label: 'Brightness', min: 0, max: 200 }, { key: 'contrast', label: 'Contrast', min: 0, max: 200 }] },
+  { name: 'Colour', color: 'var(--green)', controls: [{ key: 'saturation', label: 'Saturation', min: 0, max: 200 }, { key: 'warmth', label: 'Temperature', min: -50, max: 50 }, { key: 'tint', label: 'Tint', min: -50, max: 50 }] },
+  { name: 'Detail', color: 'var(--blue)', controls: [{ key: 'structure', label: 'Structure', min: 0, max: 100 }, { key: 'sharpness', label: 'Sharpness', min: 0, max: 100 }, { key: 'vignette', label: 'Vignette', min: 0, max: 100 }] },
 ]
 export const UPLOAD_LIMITS = { bytes: 10_000_000, pixels: 24_000_000, side: 10_000 }
 export type LocalPhoto = { url: string; name: string; width: number; height: number; format: string; local: boolean }

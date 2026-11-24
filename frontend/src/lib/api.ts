@@ -18,6 +18,7 @@ export class ApiError extends Error {
 }
 
 type RequestOptions = {
+  accept?: string
   token?: string
   signal?: AbortSignal
   body?: BodyInit
@@ -26,6 +27,7 @@ type RequestOptions = {
 
 async function request(path: string, method: string, options: RequestOptions = {}): Promise<Response> {
   const headers = new Headers()
+  if (options.accept) headers.set('Accept', options.accept)
   if (options.token) headers.set('Authorization', `Bearer ${options.token}`)
   let body = options.body
   if (options.json !== undefined) {
@@ -88,7 +90,7 @@ export async function uploadImage(file: File, signal?: AbortSignal): Promise<Upl
 }
 
 export async function getOriginalPreview(imageId: string, token: string, signal?: AbortSignal): Promise<Blob> {
-  const response = await request(`${imagePath(imageId)}/original-preview`, 'GET', { token, signal })
+  const response = await request(`${imagePath(imageId)}/original-preview`, 'GET', { token, signal, accept: 'image/png' })
   return response.blob()
 }
 

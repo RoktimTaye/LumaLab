@@ -12,6 +12,16 @@ class Adjustments(BaseModel):
     contrast: int = Field(ge=0, le=200)
     saturation: int = Field(ge=0, le=200)
     warmth: int = Field(ge=-50, le=50)
+    tint: int = Field(default=0, ge=-50, le=50)
+    exposure: float = Field(default=0, ge=-3, le=3)
+    highlights: int = Field(default=0, ge=-100, le=100)
+    shadows: int = Field(default=0, ge=-100, le=100)
+    ambience: int = Field(default=0, ge=-100, le=100)
+    structure: int = Field(default=0, ge=0, le=100)
+    rotation: Literal[0, 90, 180, 270] = 0
+    straighten: float = Field(default=0, ge=-30, le=30)
+    flip_horizontal: bool = False
+    flip_vertical: bool = False
     sharpness: int = Field(ge=0, le=100)
     vignette: int = Field(ge=0, le=100)
 

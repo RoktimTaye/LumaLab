@@ -12,6 +12,7 @@ from PIL import Image, ImageCms, ImageEnhance, ImageFilter, ImageOps, ImageStat,
 from app.config import Settings
 from app.schemas.images import Adjustments, Crop, Enhancement, NaturalEnhancement, RGBCurves
 from app.services.curves import rgb_table
+from app.services.manual import tone_table, transform, add_structure
 from app.services.enhancement import analyze, apply as apply_enhancement
 
 SRGB_PROFILE = ImageCms.ImageCmsProfile(ImageCms.createProfile("sRGB")).tobytes()
@@ -96,6 +97,8 @@ def render(path: Path, adjustments: Adjustments | None, settings: Settings, *, p
     if adjustments is not None:
         # Match Pillow's blend rounding using tiny lookup tables. Contrast uses
         # the same global luminance mean as ImageEnhance.Contrast.
+        if adjustments.exposure or adjustments.highlights or adjustments.shadows or adjustments.ambience:
+            image = image.point(tone_table(adjustments.exposure, adjustments.highlights, adjustments.shadows, adjustments.ambience) * 3)
         ramp = Image.frombytes("L", (256, 1), bytes(range(256)))
         if adjustments.brightness != 100:
             table = list(ImageEnhance.Brightness(ramp).enhance(adjustments.brightness / 100).get_flattened_data())
@@ -115,8 +118,16 @@ def render(path: Path, adjustments: Adjustments | None, settings: Settings, *, p
             red = np.clip(values + shift, 0, 255).astype(np.uint8).tolist()
             blue = np.clip(values - shift, 0, 255).astype(np.uint8).tolist()
             image = image.point(red + list(range(256)) + blue)
+        if adjustments.tint:
+            # Positive tint adds magenta; negative tint adds green.
+            shift = adjustments.tint * 0.4
+            values = np.arange(256, dtype=np.float32)
+            red_blue = np.clip(values + shift * 0.5, 0, 255).astype(np.uint8).tolist()
+            green = np.clip(values - shift, 0, 255).astype(np.uint8).tolist()
+            image = image.point(red_blue + green + red_blue)
         if curves is not None:
             image = image.point(rgb_table(curves))
+        image = add_structure(image, adjustments.structure)
         if adjustments.sharpness:
             radius = max(0.5, max(image.size) / 1600)
             # Read overlapping source tiles into a separate destination so each
@@ -143,6 +154,8 @@ def render(path: Path, adjustments: Adjustments | None, settings: Settings, *, p
                 with image.crop((0, top, width, bottom)) as tile:
                     pixels = np.asarray(tile, dtype=np.float32) * mask[:, :, None]
                     image.paste(Image.fromarray(np.clip(pixels, 0, 255).astype(np.uint8)), (0, top))
+    if adjustments is not None:
+        image = transform(image, adjustments)
     output = BytesIO()
     image.save(output, format="JPEG", quality=settings.jpeg_quality if quality is None else quality,
                icc_profile=SRGB_PROFILE)

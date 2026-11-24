@@ -49,3 +49,59 @@
 .emptyState{max-height:100%;overflow-y:auto;overscroll-behavior:contain;padding:12px 4px;flex-shrink:1}.emptyIcon{margin-bottom:10px;height:36px;flex-shrink:0}.emptyState h2{font-size:26px;margin-bottom:10px}.emptyState>p{margin-bottom:16px}.emptyState>.button,.sampleButton{flex-shrink:0}.uploadLimits{margin-top:10px}.sampleDivider{margin:16px 0 12px;flex-shrink:0}
 @media(min-width:768px) and (max-width:1023px){.workspace{grid-template-columns:200px minmax(0,1fr) 240px;grid-template-rows:minmax(0,1fr)}.leftPanel{display:flex;flex-direction:column;grid-column:1;grid-row:1;border-top:0;border-right:1px solid var(--studio-rule)}.center{grid-column:2;grid-row:1}.rightPanel{grid-column:3;grid-row:1}.presetSection{grid-column:auto;grid-row:auto}.enhanceSection{border-left:0;border-top:1px solid var(--studio-rule)}.presetList{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:767px){.header{padding:8px 12px;min-height:60px;flex-wrap:nowrap;gap:8px}.headerActions{gap:8px}.studioFooter{display:none}.workspace{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1.1fr) 56px minmax(0,1fr)}.center{grid-row:1;grid-column:1}.mobileTabs{grid-row:2;grid-column:1;padding:4px 12px;min-height:0}.leftPanel,.rightPanel{grid-row:3;grid-column:1;min-height:0}.leftPanel.mobileVisible{display:flex;flex-direction:column}.leftPanel .presetSection{flex:none;min-height:0;max-height:none;overflow:visible}.leftPanel .preserveNote{margin-top:0}.canvas{padding:10px}.imageContainer{width:min(100%,calc((100cqh - 20px) * var(--photo-ratio)))}.workspaceToolbar{min-height:36px;padding:8px 12px}.workspaceBottom{padding:5px 10px;gap:4px}.workspaceBottom>button{padding:6px;min-height:44px;font-size:10px}.imageInfo>span{font-size:10px}.imageInfo>small{font-size:9px;margin-top:3px}.status{padding:4px 10px;min-height:22px;font-size:10px;max-height:38px}.emptyState{width:100%;padding:10px 4px}.emptyIcon{display:none}.emptyState h2{font-size:21px}.emptyState>p{font-size:12px;margin-bottom:10px}.emptyState>.button{padding:9px 14px}.sampleDivider{margin:10px 0}.uploadLimits{font-size:10px}.sampleButton{padding:6px}.controlGroup{padding-block:10px}.control{margin-top:16px}}
+
+.geometrySection{padding:16px 20px;border-bottom:1px solid var(--studio-rule);font-size:12px}.geometrySection summary{cursor:pointer;font-size:13px;min-height:32px}.geometryButtons{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;margin:10px 0 16px}.geometrySection button,.historyButtons button{background:transparent;color:var(--body);border:1px solid var(--studio-rule);border-radius:3px;padding:8px;font-size:12px;min-height:36px}.geometrySection button[aria-pressed=true]{color:var(--mint);border-color:var(--mint)}.geometrySection label{display:flex;justify-content:space-between}.geometrySection input{width:100%;min-height:36px;accent-color:var(--mint)}.geometrySection p{font-size:11px;margin:8px 0 12px}.historyButtons{display:flex;gap:6px}.historyButtons button:hover,.geometrySection button:hover{background:var(--studio-hover)}
+@media(max-width:767px){.historyButtons{gap:2px}.historyButtons button{padding:5px;font-size:10px;min-height:44px}.geometrySection button,.geometrySection input{min-height:44px}.headerActions{gap:5px}}
+
+.groupReset{margin-left:auto;background:transparent;color:var(--muted);font:400 11px var(--font-body);padding:4px 8px;min-height:32px}.controlGroup legend .groupReset{float:right}.groupReset:hover{color:var(--mint)}
+
+@media(max-width:767px){.headerActions>button{font-size:11px;padding:8px;gap:5px;min-height:44px;white-space:nowrap}.headerActions>button>span{white-space:nowrap}}
+
+/* Histogram is a preview-only overlay; it never changes the photo layout or export. */
+.imageContainer{position:relative}
+.histogramOverlay{position:absolute;top:10px;left:10px;width:210px;max-width:calc(100% - 20px);z-index:4;padding:10px;background:transparent;border:0;border-radius:0;pointer-events:none}
+.histogramToggle{flex:none;min-height:36px;padding:6px 10px;border:1px solid var(--studio-rule);border-radius:3px;background:transparent;color:var(--body);font:400 12px var(--font-body)}
+.histogramToggle[aria-pressed=true]{color:var(--mint);border-color:var(--mint);background:var(--studio-selection)}.histogramToggle:hover:not(:disabled){background:var(--studio-hover)}
+@media(max-width:767px){.histogramToggle{min-height:44px;font-size:10px;padding:5px 7px}.histogramOverlay{top:6px;left:6px;width:140px;max-width:calc(100% - 12px);padding:7px}.workspaceToolbar{gap:8px}.workspaceToolbar:has(.histogramToggle) .workspaceMode{display:none}}
+
+/* Status updates must not resize/recentre the photograph during an edit. */
+.center{position:relative}
+.center>.status{position:absolute;left:12px;right:12px;bottom:72px;z-index:5;min-height:0;max-height:48px;padding:4px 8px;pointer-events:none}
+@media(max-width:767px){.center>.status{left:4px;right:4px;bottom:58px;max-height:32px;padding:2px 6px}}
+
+.uploadButton{justify-content:center}
+
+.whiteBalanceActions{display:flex;justify-content:center;margin-top:20px}
+
+.dialog>.applySuggestionsAction{display:flex;justify-content:center;width:fit-content;max-width:100%;margin:20px auto 0}
+
+/* Mobile photo workspace: tools are drawers, not permanently stacked sidebars. */
+.mobileToolStrip,.mobileSheetHeading,.mobileToolMenu{display:none}
+@media(max-width:767px){
+ .studio{height:100dvh;padding-bottom:env(safe-area-inset-bottom,0px)}
+ .header{min-height:56px;padding:6px 12px;gap:10px}.headerActions{gap:8px}.headerActions>button{display:none}.headerActions .backLink{width:36px;min-height:44px;justify-content:center}.historyButtons button{min-width:40px;min-height:44px}
+ .workspace{position:relative;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) 0 78px 62px;overflow:hidden}
+ .workspace.mobileSheetOpen{grid-template-rows:minmax(0,1fr) 0 78px 62px}
+ .center{grid-row:1;grid-column:1;min-height:0}.workspaceToolbar{min-height:36px;padding:4px 12px;gap:8px;border-bottom:0}.workspaceToolbar h1{font-size:11px;font-weight:400;color:var(--muted)}.histogramToggle{min-height:32px;padding:4px 7px;font-size:10px}.workspaceToolbar .workspaceMode{display:none}
+ .canvas{padding:8px 16px}.imageContainer{width:min(100%,calc((100cqh - 16px) * var(--photo-ratio)))}
+ .workspaceBottom{display:none}.center>.status{bottom:6px;left:6px;right:6px;font-size:9px;max-height:28px}.error{max-height:70px}
+ .leftPanel,.rightPanel{position:absolute;grid-row:auto;grid-column:auto;left:0;right:0;bottom:140px;height:min(40dvh,380px);max-height:calc(100% - 176px);z-index:20;display:none;overflow:auto;min-height:0;border:0;border-top:1px solid var(--studio-rule);overscroll-behavior:contain;background:var(--studio-panel)}
+ .leftPanel.mobileVisible,.rightPanel.mobileVisible{display:block}
+ .mobileSheetHeading{display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:8;background:var(--studio-panel);border-bottom:1px solid var(--studio-rule);padding:6px 16px;min-height:48px}
+ .mobileSheetHeading h2{font:500 14px var(--font-body);letter-spacing:0}.mobileSheetHeading button{display:flex;align-items:center;gap:6px;min-height:40px;padding:6px 8px;color:var(--mint);background:transparent;font:500 12px var(--font-body)}
+ .leftPanel>.panelTitle,.rightPanel>.panelTitle,.rightPanel>.adjustmentHeader{display:none}
+ .rightPanel>[data-tool]{display:none}
+ .rightPanel[data-mobile-tool=light]>[data-tool=light],.rightPanel[data-mobile-tool=colour]>[data-tool=colour],.rightPanel[data-mobile-tool=detail]>[data-tool=detail],.rightPanel[data-mobile-tool=curves]>[data-tool=curves],.rightPanel[data-mobile-tool=geometry]>[data-tool=geometry],.rightPanel[data-mobile-tool=enhance]>[data-tool=enhance],.rightPanel[data-mobile-tool=reset]>[data-tool=reset]{display:block}
+ .rightPanel[data-mobile-tool=menu]>.mobileToolMenu{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;padding:10px 8px 18px}
+ .mobileToolMenu button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;min-width:0;min-height:88px;padding:10px 6px;background:transparent;color:var(--body);font:400 11px/1.35 var(--font-body);border:1px solid transparent;border-radius:4px;text-align:center}
+ .mobileToolMenu button:hover,.mobileToolMenu button[aria-pressed=true]{background:var(--studio-hover);color:var(--mint);border-color:var(--studio-rule)}
+ .mobileToolStrip{grid-row:3;grid-column:1;display:flex;align-items:stretch;gap:2px;overflow-x:auto;overflow-y:hidden;padding:4px 10px;scrollbar-width:none;background:var(--studio-canvas);overscroll-behavior-x:contain;scroll-snap-type:x proximity;border-top:1px solid var(--studio-rule)}
+ .mobileToolStrip::-webkit-scrollbar{display:none}.mobileToolStrip button{flex:0 0 78px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:64px;padding:6px 3px;background:transparent;color:var(--body);font:400 11px/1.3 var(--font-body);scroll-snap-align:start;border-radius:3px}.mobileToolStrip button:active{background:var(--studio-hover);color:var(--mint)}
+ .mobileTabs{grid-row:4;grid-column:1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;padding:3px 8px;margin:0;border:0;background:var(--studio-panel)}
+ .mobileTabs>button{display:flex;flex-direction:column;gap:4px;justify-content:center;align-items:center;min-height:54px;padding:5px 4px;border:0;border-radius:0;font:500 12px var(--font-body);color:var(--body)}.mobileTabs>button[aria-pressed=true]{background:transparent;border:0;color:var(--mint)}
+ .leftPanel .presetSection{max-height:none;overflow:visible;min-height:0}.leftPanel .uploadSection{padding:14px 16px}.leftPanel .enhanceSection{padding:16px}.leftPanel .preserveNote{padding:12px 16px}
+ .rightPanel .controlGroup{padding:8px 18px 16px}.rightPanel .controlGroup legend{margin-bottom:8px;padding-top:8px}.rightPanel .control{margin-top:14px}.rightPanel .control input{margin-top:4px}.rightPanel .geometrySection{padding:12px 18px}.rightPanel .resetSection{padding:18px}
+}
+@media(max-width:767px) and (max-height:600px){.workspace{grid-template-rows:minmax(0,1fr) 0 64px 54px}.workspace.mobileSheetOpen{grid-template-rows:minmax(0,1fr) 0 64px 54px}.leftPanel,.rightPanel{bottom:118px;height:32dvh;max-height:calc(100% - 148px)}.header{min-height:50px;padding-block:3px}.mobileToolStrip button{min-height:54px;gap:4px}.mobileTabs>button{min-height:46px}.mobileTabs{padding-block:0}.workspaceToolbar{min-height:30px}}
+
+.historyButtons button{display:inline-flex;align-items:center;justify-content:center;min-width:36px}
