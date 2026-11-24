@@ -5,8 +5,10 @@ import { ArrowUpRight, Check, CheckCheck, ChevronRight, Download, Image, Layers,
 import { Header } from '../components/Header'
 import { Brand } from '../components/Brand'
 import { PhotoPreview } from '../components/PhotoPreview'
-import { PRESETS } from '../lib/editor'
+import { PRESETS as CATALOG_PRESETS } from '../lib/editor'
 import styles from './Home.module.css'
+
+const PRESETS = CATALOG_PRESETS.slice(0, 5)
 
 const features = [
   { icon: SlidersHorizontal, label: '01 / MAKE IT YOURS', title: 'Small adjustments.\nA different perspective.', copy: 'Bring out what caught your eye. Fine-tune the light, find your colours, and give every detail a little more intention.', items: ['Brightness, contrast & saturation', 'Warmth, sharpness & vignette', 'Your original, always preserved'], image: '/images/tree-lined-road.jpg', kind: 'controls' },

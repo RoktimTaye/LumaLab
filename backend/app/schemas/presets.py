@@ -15,3 +15,6 @@ class Preset(BaseModel):
     warmth: int = Field(ge=-50, le=50)
     sharpness: int = Field(ge=0, le=100)
     vignette: int = Field(ge=0, le=100)
+    category: str
+    popular: bool
+    display_order: int = Field(ge=1, le=1000)

@@ -1,6 +1,8 @@
-"""Repeatable, explicit seeding of the five built-in preset definitions."""
+"""Repeatable, explicit seeding of the complete built-in preset catalogue."""
 
 import argparse
+import json
+from pathlib import Path
 
 from psycopg import Connection, Error, connect
 from psycopg.conninfo import conninfo_to_dict
@@ -9,19 +11,16 @@ from app.config import Settings, load_settings
 from app.logging import configure_logging
 from app.schemas.presets import Preset
 
-PRESETS = (
-    ("original", "Original", "Just as you captured it", 100, 100, 100, 0, 0, 0),
-    ("cinematic", "Cinematic", "Cool tones. Quiet drama.", 98, 120, 78, -12, 12, 22),
-    ("golden-hour", "Golden Hour", "A little more sunshine", 110, 94, 112, 22, 5, 8),
-    ("monochrome", "Monochrome", "A story in light and shadow", 102, 125, 0, 0, 18, 16),
-    ("vivid", "Vivid", "Colour with confidence", 103, 110, 140, 2, 30, 0),
-)
+CATALOG_PATH = Path(__file__).with_name("preset_catalog.json")
+CATALOG = json.loads(CATALOG_PATH.read_text(encoding="utf-8"))
+PRESETS = tuple(tuple(record[field] for field in Preset.model_fields) for record in CATALOG)
 
 UPSERT = """
     INSERT INTO public.presets (
         preset_id, preset_name, description, brightness, contrast,
-        saturation, warmth, sharpness, vignette
-    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        saturation, warmth, sharpness, vignette, category, popular,
+        display_order
+    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     ON CONFLICT (preset_id) DO UPDATE SET
         preset_name = EXCLUDED.preset_name,
         description = EXCLUDED.description,
@@ -30,7 +29,10 @@ UPSERT = """
         saturation = EXCLUDED.saturation,
         warmth = EXCLUDED.warmth,
         sharpness = EXCLUDED.sharpness,
-        vignette = EXCLUDED.vignette
+        vignette = EXCLUDED.vignette,
+        category = EXCLUDED.category,
+        popular = EXCLUDED.popular,
+        display_order = EXCLUDED.display_order
 """
 
 
@@ -59,7 +61,7 @@ def run_seed(settings: Settings) -> int:
 
 
 def main() -> int:
-    argparse.ArgumentParser(description="Upsert the five built-in presets.").parse_args()
+    argparse.ArgumentParser(description="Upsert the built-in preset catalogue.").parse_args()
     configure_logging()
     try:
         count = run_seed(load_settings())

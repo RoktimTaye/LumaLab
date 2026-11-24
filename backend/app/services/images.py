@@ -10,7 +10,8 @@ import numpy as np
 from PIL import Image, ImageCms, ImageEnhance, ImageFilter, ImageOps, ImageStat, UnidentifiedImageError
 
 from app.config import Settings
-from app.schemas.images import Adjustments, Crop, Enhancement, NaturalEnhancement
+from app.schemas.images import Adjustments, Crop, Enhancement, NaturalEnhancement, RGBCurves
+from app.services.curves import rgb_table
 from app.services.enhancement import analyze, apply as apply_enhancement
 
 SRGB_PROFILE = ImageCms.ImageCmsProfile(ImageCms.createProfile("sRGB")).tobytes()
@@ -64,7 +65,7 @@ def normalize(data: bytes, filename: str, settings: Settings) -> tuple[Image.Ima
 
 def render(path: Path, adjustments: Adjustments | None, settings: Settings, *, preview: bool, quality: int | None = None,
            crop: Crop | None = None, original_size: tuple[int, int] | None = None,
-           enhancement: NaturalEnhancement | None = None) -> bytes:
+           enhancement: NaturalEnhancement | None = None, curves: RGBCurves | None = None) -> bytes:
     # Validate before decoding or allocating cropped pixels. Never allow Pillow
     # to pad out-of-bounds requests or allocate a caller-selected larger image.
     if crop is not None:
@@ -114,6 +115,8 @@ def render(path: Path, adjustments: Adjustments | None, settings: Settings, *, p
             red = np.clip(values + shift, 0, 255).astype(np.uint8).tolist()
             blue = np.clip(values - shift, 0, 255).astype(np.uint8).tolist()
             image = image.point(red + list(range(256)) + blue)
+        if curves is not None:
+            image = image.point(rgb_table(curves))
         if adjustments.sharpness:
             radius = max(0.5, max(image.size) / 1600)
             # Read overlapping source tiles into a separate destination so each

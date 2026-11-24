@@ -16,6 +16,37 @@ class Adjustments(BaseModel):
     vignette: int = Field(ge=0, le=100)
 
 
+class CurvePoint(BaseModel):
+    model_config = ConfigDict(strict=True, extra="forbid", frozen=True)
+    x: int = Field(ge=0, le=255)
+    y: int = Field(ge=0, le=255)
+
+
+class PointCurve(BaseModel):
+    model_config = ConfigDict(strict=True, extra="forbid", frozen=True)
+    points: list[CurvePoint] = Field(min_length=2, max_length=16)
+
+    @model_validator(mode="after")
+    def ordered_points(self) -> "PointCurve":
+        if self.points[0].x != 0 or self.points[-1].x != 255:
+            raise ValueError("Curve endpoints must have input values 0 and 255")
+        if any(a.x >= b.x for a, b in zip(self.points, self.points[1:])):
+            raise ValueError("Curve input values must be strictly increasing")
+        return self
+
+
+def identity_curve() -> PointCurve:
+    return PointCurve(points=[CurvePoint(x=0, y=0), CurvePoint(x=255, y=255)])
+
+
+class RGBCurves(BaseModel):
+    model_config = ConfigDict(strict=True, extra="forbid", frozen=True)
+    rgb: PointCurve = Field(default_factory=identity_curve)
+    red: PointCurve = Field(default_factory=identity_curve)
+    green: PointCurve = Field(default_factory=identity_curve)
+    blue: PointCurve = Field(default_factory=identity_curve)
+
+
 class Crop(BaseModel):
     """Rectangle in oriented original-image pixels; bounds checked against the session."""
     model_config = ConfigDict(strict=True, extra="forbid", frozen=True)
@@ -79,6 +110,7 @@ class PreviewRequest(BaseModel):
     model_config = ConfigDict(strict=True, extra="forbid")
     revision: int = Field(ge=0, description="Client revision echoed in the X-Image-Revision response header.")
     adjustments: Adjustments
+    curves: RGBCurves | None = None
     crop: Crop | None = None
     enhancement: NaturalEnhancement | None = None
 
@@ -86,6 +118,7 @@ class PreviewRequest(BaseModel):
 class ExportRequest(BaseModel):
     model_config = ConfigDict(strict=True, extra="forbid")
     adjustments: Adjustments
+    curves: RGBCurves | None = None
     crop: Crop | None = None
     enhancement: NaturalEnhancement | None = None
     format: Literal["jpeg"] = "jpeg"

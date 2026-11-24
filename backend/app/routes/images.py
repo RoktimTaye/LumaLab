@@ -141,7 +141,7 @@ def original_preview(image_id: str, request: Request, token: Token):
 def preview(image_id: str, body: PreviewRequest, request: Request, token: Token):
     with request.app.state.image_store.authorized(image_id, token) as session:
         data = render(session.directory / "preview.png", body.adjustments, request.app.state.settings, preview=True,
-                      crop=body.crop, original_size=(session.width, session.height), enhancement=body.enhancement)
+                      crop=body.crop, original_size=(session.width, session.height), enhancement=body.enhancement, curves=body.curves)
     return Response(data, media_type="image/jpeg", headers={"X-Image-Revision": str(body.revision)})
 
 
@@ -162,7 +162,7 @@ def export(image_id: str, body: ExportRequest, request: Request, token: Token):
     with request.app.state.image_store.authorized(image_id, token) as session:
         data = render(session.directory / "normalized.png", body.adjustments, request.app.state.settings,
                       preview=False, quality=body.quality, crop=body.crop, original_size=(session.width, session.height),
-                      enhancement=body.enhancement)
+                      enhancement=body.enhancement, curves=body.curves)
         stem = re.sub(r"[^A-Za-z0-9_-]+", "-", Path(session.filename).stem).strip("-")[:80] or "image"
     return Response(data, media_type="image/jpeg", headers={
         "Content-Disposition": f'attachment; filename="lumalab-{stem}.jpg"',

@@ -29,7 +29,7 @@ DATABASE_DIRECT_URL=postgresql://OWNER:PASSWORD@HOST.neon.tech/DB_NAME?sslmode=r
 
 Use the pooled, least-privilege URL for runtime traffic and the direct owner URL for migrations/seeding. Both must target the same branch and database. URLs require a host, database, user, password and TLS (`sslmode=require`, `verify-ca` or `verify-full`). Keep `.env` private and ignored; never copy credentials into frontend variables.
 
-Before applying migrations to a new database, create the `lumalab_app` login role through your database administration tooling, and ensure it can connect to the database and use the `public` schema. Migration `002_presets.sql` expects that role to exist and grants it SELECT on presets. The application role must not inherit owner or write privileges. Use a separate development branch for migration experiments.
+Before applying migrations to a new database, create the `lumalab_app` login role through your database administration tooling, and ensure it can connect to the database and use the `public` schema. Migration `002_presets.sql` creates the table and grants it SELECT; `003_preset_catalog.sql` adds grouping and popularity metadata. The application role must not inherit owner or write privileges. Use a separate development branch for migration experiments.
 
 From `backend/`, prepare the database, then start the API:
 
@@ -39,7 +39,7 @@ uv run --locked python -m app.db.seed
 uv run --locked python -m app --reload
 ```
 
-The API listens at `http://127.0.0.1:8000`. Startup checks database access, all five presets and private image storage. A database or catalogue failure prevents normal startup. The owner URL can be removed from the runtime environment after provisioning.
+The API listens at `http://127.0.0.1:8000`. Startup checks database access, all 35 saved presets and private image storage. A database or catalogue failure prevents normal startup. The owner URL can be removed from the runtime environment after provisioning.
 
 | URL | Purpose |
 | --- | --- |
@@ -80,13 +80,13 @@ flowchart LR
   API -->|JPEG bytes and JSON| Browser
 ```
 
-1. Studio loads five presets from PostgreSQL: Original, Cinematic, Golden Hour, Monochrome and Vivid.
+1. Studio loads the complete 35-preset catalogue from PostgreSQL, grouped by saved category and popularity metadata.
 2. Upload validation checks still JPEG/PNG/WebP content, filename extension, frame count, dimensions and colour metadata. The service normalizes EXIF orientation and sRGB colour, composites transparency onto white, and keeps the exact original bytes separately.
 3. Upload returns a random image ID, a one-time bearer token, dimensions, format and fixed expiry. Session memory retains only the token hash.
 4. Preview and export render the complete adjustment state from immutable normalized source files. Reduced private PNGs support preview and analysis. Enhancement returns suggestions rather than modifying the source.
 5. Deletion, expiry and graceful shutdown remove private files. Startup removes stale run directories. Restart loses the in-memory sessions; clients must upload again.
 
-There are no accounts, durable photo library or saved editing history. PostgreSQL contains `public.presets` (stable ID, name, description and six bounded adjustments) and `public.schema_migrations` (migration history/checksums).
+There are no accounts, durable photo library or saved editing history. PostgreSQL contains `public.presets` (stable ID, name, description, six bounded adjustments, category, popularity and display order) and `public.schema_migrations` (migration history/checksums). The canonical seed data is `backend/app/db/preset_catalog.json`.
 
 ## API contract
 
@@ -96,11 +96,12 @@ All paths below are under `/api/v1`. The live OpenAPI schema is the detailed con
 | --- | --- | --- |
 | GET | `/health` | Resource readiness JSON |
 | GET | `/presets` | Validated preset array from PostgreSQL |
+| GET | `/presets/{preset_id}` | One saved preset from PostgreSQL for lazy loading |
 | POST | `/images` | Multipart `file`; 201 with `image_id`, `access_token`, `filename`, `format`, `width`, `height`, `expires_at` |
 | GET | `/images/{image_id}/original-preview` | Normalized original as JPEG |
-| POST | `/images/{image_id}/preview` | JSON `{revision, adjustments, crop?, enhancement?}`; JPEG with matching `X-Image-Revision` |
+| POST | `/images/{image_id}/preview` | JSON `{revision, adjustments, crop?, enhancement?, curves?}`; JPEG with matching `X-Image-Revision` |
 | POST | `/images/{image_id}/enhance` | JSON response `{adjustments, recipe, assessment, message}`; source-derived `natural-v3` recipe |
-| POST | `/images/{image_id}/export` | JSON `{adjustments, crop?, enhancement?, format: "jpeg", quality: 92}`; full-resolution JPEG attachment |
+| POST | `/images/{image_id}/export` | JSON `{adjustments, crop?, enhancement?, curves?, format: "jpeg", quality: 92}`; full-resolution JPEG attachment |
 | DELETE | `/images/{image_id}` | 204, empty body |
 
 Every operation on an existing image requires `Authorization: Bearer <access_token>`. Upload, health and presets are public. Tokens are image-specific; query strings, cookies and JSON fields do not authorize access. Private responses use `Cache-Control: no-store`. JPEG responses are binary bytes, with safe attachment filenames for export.
@@ -116,7 +117,9 @@ Every adjustment object contains all six strict integer fields; extra fields, fl
 | `sharpness` | 0–100 | 0 |
 | `vignette` | 0–100 | 0 |
 
-When present, the versioned `enhancement` recipe runs first: float32, linear-light exposure/tone adjustments, conservative white-balance gains, vibrance and smooth gamut compression. Strength blends the complete correction with the original encoded sRGB pixels; zero is exactly neutral. The existing manual render order then follows: brightness, contrast, saturation, warmth, sharpness and vignette. Original input precision remains that of the normalized RGB source; this is not a high-bit-depth RAW decoder. JPEG output embeds sRGB ICC while omitting source EXIF/GPS. Preview revisions are nonnegative client request identifiers echoed by the server; they do not represent stored edit history.
+When present, the versioned `enhancement` recipe runs first: float32, linear-light exposure/tone adjustments, conservative white-balance gains, vibrance and smooth gamut compression. Strength blends the complete correction with the original encoded sRGB pixels; zero is exactly neutral. The existing manual render order then follows: brightness, contrast, saturation, warmth, RGB point curves, sharpness and vignette. Original input precision remains that of the normalized RGB source; this is not a high-bit-depth RAW decoder. JPEG output embeds sRGB ICC while omitting source EXIF/GPS. Preview revisions are nonnegative client request identifiers echoed by the server; they do not represent stored edit history.
+
+Optional `curves` contains `rgb`, `red`, `green` and `blue` channel objects, each with `points: [{x: 0, y: 0}, {x: 255, y: 255}]` by default. Each channel accepts 2–16 points, strict integer x/y values from 0–255, strictly increasing inputs and endpoint inputs 0 and 255. Outputs may reverse direction. Shape-preserving cubic interpolation produces bounded 256-entry lookup tables in encoded sRGB; the master RGB table runs first, followed by each individual channel. Omitting curves, null curves and identity curves preserve the existing render. No source files or database preset rows change.
 
 Auto Enhance uses the whole uncropped original preview (up to 768 pixels per edge for tonal analysis), luminance quantiles, regional lighting, hue-specific saturation, plausible neutral-color evidence and resized-image noise/structure indicators. It can correct deficits and excesses: brighten or darken, add or soften midtone contrast, deepen lifted black levels, and reduce excessive individual colors. It limits correction for low/high-key scenes and backs off if the candidate introduces excessive new clipping or blocked blacks. It returns neutral manual `adjustments`; clients must submit the returned `recipe` as `enhancement` on both preview and export to apply the photographic result. No server-side recipe history is stored, and repeated analysis does not compound prior edits. Recipe fields are strict, finite and bounded; `version` accepts `natural-v1` (legacy renderer) and `natural-v2` (previous photographic renderer), and `natural-v3` (current source-scale detail renderer). Legacy requests that omit `enhancement` keep their existing manual behavior.
 
@@ -160,7 +163,7 @@ Run migration and seed commands explicitly from `backend/` against the intended 
 - Applied filenames and SHA-256 checksums are recorded in `public.schema_migrations`; line endings are normalized before hashing.
 - The runner takes a transaction-scoped advisory lock and applies all pending files in one transaction. A failure rolls back the batch; concurrent runs fail immediately. Changed, missing or out-of-order history is rejected.
 - Use transactional SQL without explicit `BEGIN`, `COMMIT`, `ROLLBACK`, `VACUUM`, `CREATE DATABASE` or commands requiring separate transaction control. Adjust the statement timeout deliberately for longer migrations.
-- `app/db/seed.py` validates and upserts the five built-ins by stable ID in one transaction. Repeating it restores their fields without duplicate IDs or deletion of unrelated rows.
+- `app/db/seed.py` validates and upserts all 35 built-ins by stable ID in one transaction. Repeating it restores their fields without duplicate IDs or deletion of unrelated rows.
 
 ## Tests and contract changes
 

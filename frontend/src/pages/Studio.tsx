@@ -1,14 +1,17 @@
-import { useEffect, useRef, useState, type CSSProperties, type DragEvent } from 'react'
+import { Fragment, useEffect, useRef, useState, type CSSProperties, type DragEvent } from 'react'
 import { Link } from '@tanstack/react-router'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation } from '@tanstack/react-query'
 import { ArrowLeft, ArrowUpRight, Check, ChevronRight, Crop as CropIcon, Download, ImagePlus, Info, Layers, LoaderCircle, Maximize2, RotateCcw, ScanLine, ShieldCheck, SlidersHorizontal, Sparkles, Upload, X } from 'lucide-react'
 import { Brand } from '../components/Brand'
+import { RGBCurveEditor } from '../components/RGBCurveEditor'
+import { identityCurves, curvesAreNeutral } from '../lib/curves'
+import { getPreset, type RGBCurves, type Preset as CatalogPreset } from '../lib/api'
 import { CropEditor } from '../components/CropEditor'
 import { DetailPreview } from '../components/DetailPreview'
 import type { Crop } from '../lib/crop'
 import { PhotoPreview } from '../components/PhotoPreview'
-import { CONTROL_GROUPS, loadPhoto, NEUTRAL, type Adjustments, type LocalPhoto } from '../lib/editor'
-import { ApiError, deleteImage, enhanceImage, exportImage, getOriginalPreview, getPresets, getPreview, uploadImage, type NaturalEnhancement, type EnhancementFinding } from '../lib/api'
+import { CONTROL_GROUPS, loadPhoto, NEUTRAL, PRESETS, PRESET_GROUPS, type Adjustments, type LocalPhoto } from '../lib/editor'
+import { ApiError, deleteImage, enhanceImage, exportImage, getOriginalPreview, getPreview, uploadImage, type NaturalEnhancement, type EnhancementFinding } from '../lib/api'
 import styles from './Studio.module.css'
 
 type StudioPhoto = LocalPhoto & {
@@ -29,17 +32,17 @@ function errorMessage(caught: unknown, fallback: string): string {
   return caught instanceof Error ? caught.message : fallback
 }
 
+function presetId(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+}
+
 export function Studio() {
-  const presetsQuery = useQuery({
-    queryKey: ['presets'],
-    queryFn: ({ signal }) => getPresets(signal),
-    staleTime: 5 * 60 * 1000,
-  })
   const uploadMutation = useMutation({ mutationFn: ({ file, signal }: { file: File; signal: AbortSignal }) => uploadImage(file, signal), gcTime: 0 })
   const enhancementMutation = useMutation({ mutationFn: ({ imageId, token, signal }: { imageId: string; token: string; signal: AbortSignal }) => enhanceImage(imageId, token, signal), gcTime: 0 })
-  const exportMutation = useMutation({ mutationFn: ({ imageId, token, adjustments, crop, enhancement, signal }: { imageId: string; token: string; adjustments: Adjustments; crop: Crop | null; enhancement: NaturalEnhancement | null; signal: AbortSignal }) => exportImage(imageId, token, adjustments, signal, crop, enhancement), gcTime: 0 })
+  const exportMutation = useMutation({ mutationFn: ({ imageId, token, adjustments, crop, enhancement, curves, signal }: { imageId: string; token: string; adjustments: Adjustments; crop: Crop | null; enhancement: NaturalEnhancement | null; curves: RGBCurves; signal: AbortSignal }) => exportImage(imageId, token, adjustments, signal, crop, enhancement, curves), gcTime: 0 })
   const deleteMutation = useMutation({ mutationFn: ({ imageId, token }: { imageId: string; token: string }) => deleteImage(imageId, token), gcTime: 0 })
   const [photo, setPhoto] = useState<StudioPhoto | null>(null)
+  const [curves, setCurves] = useState(identityCurves)
   const [values, setValues] = useState<Adjustments>({ ...NEUTRAL })
   const [enhancement, setEnhancement] = useState<NaturalEnhancement | null>(null)
   const [assessment, setAssessment] = useState<EnhancementFinding[]>([])
@@ -64,6 +67,9 @@ export function Studio() {
   const requestId = useRef(0)
   const currentPhoto = useRef<StudioPhoto | null>(null)
   const previewController = useRef<AbortController | null>(null)
+  const presetCache = useRef(new Map<string, CatalogPreset>())
+  const presetRequests = useRef(new Map<string, Promise<CatalogPreset>>())
+  const presetSelectionRevision = useRef(0)
   const uploadController = useRef<AbortController | null>(null)
   const enhancementController = useRef<AbortController | null>(null)
   const exportController = useRef<AbortController | null>(null)
@@ -104,11 +110,11 @@ export function Studio() {
 
   useEffect(() => {
     if (!photo) return
-    const requestKey = `${photo.imageId}:${JSON.stringify(values)}:${JSON.stringify(crop)}:${JSON.stringify(enhancement)}`
+    const requestKey = `${photo.imageId}:${JSON.stringify(values)}:${JSON.stringify(crop)}:${JSON.stringify(enhancement)}:${JSON.stringify(curves)}`
     const immediate = previewNow.current
     previewNow.current = false
     const isNeutral = Object.entries(values).every(([key, value]) => value === NEUTRAL[key as keyof Adjustments])
-    if (isNeutral && !crop && (!enhancement || enhancement.strength === 0)) {
+    if (isNeutral && curvesAreNeutral(curves) && !crop && (!enhancement || enhancement.strength === 0)) {
       setRenderedCrop(null)
       renderedPreviewKey.current = requestKey
       const current = currentPhoto.current
@@ -135,7 +141,7 @@ export function Studio() {
     const timer = window.setTimeout(async () => {
       activePreviewKey.current = requestKey
       try {
-        const result = await getPreview(photo.imageId, photo.accessToken, revision, values, controller.signal, crop, enhancement)
+        const result = await getPreview(photo.imageId, photo.accessToken, revision, values, controller.signal, crop, enhancement, curves)
         if (controller.signal.aborted || currentPhoto.current?.imageId !== photo.imageId || previewRevision.current !== revision) return
         if (result.revision !== String(revision)) throw new Error('The preview response did not match the latest settings. Try again.')
         const current = currentPhoto.current
@@ -166,12 +172,12 @@ export function Studio() {
       controller.abort()
       if (activePreviewKey.current === requestKey) activePreviewKey.current = ''
     }
-  }, [photo?.imageId, photo?.accessToken, values, crop, enhancement, previewFlush])
+  }, [photo?.imageId, photo?.accessToken, values, crop, enhancement, curves, previewFlush])
 
   function flushPreview() {
     const current = currentPhoto.current
     if (!current) return
-    const requestKey = `${current.imageId}:${JSON.stringify(values)}:${JSON.stringify(crop)}:${JSON.stringify(enhancement)}`
+    const requestKey = `${current.imageId}:${JSON.stringify(values)}:${JSON.stringify(crop)}:${JSON.stringify(enhancement)}:${JSON.stringify(curves)}`
     if (activePreviewKey.current === requestKey || renderedPreviewKey.current === requestKey) return
     previewNow.current = true
     setPreviewFlush(current => current + 1)
@@ -190,7 +196,7 @@ export function Studio() {
     invalidateEnhancement()
     exportController.current?.abort()
   }
-  function reset() { invalidateEditedWork(); enhancementFeedback.current = ''; setEnhancement(null); setAssessment([]); setValues({ ...NEUTRAL }); setActivePreset('Original'); setStatus('All adjustments reset to Original.') }
+  function reset() { invalidateEditedWork(); enhancementFeedback.current = ''; setEnhancement(null); setAssessment([]); setCurves(identityCurves()); setValues({ ...NEUTRAL }); setActivePreset('Original'); setStatus('All adjustments reset to Original.') }
   function releasePhoto(current: StudioPhoto) {
     if (current.previewUrl !== current.originalPreviewUrl) URL.revokeObjectURL(current.previewUrl)
     URL.revokeObjectURL(current.originalPreviewUrl)
@@ -210,7 +216,7 @@ export function Studio() {
     setPreviewReady(true)
     setCrop(null); setRenderedCrop(null); setCropEditing(false)
     setEnhancement(null); setAssessment([])
-    setPhoto(next); setValues({ ...NEUTRAL }); setActivePreset('Original'); setCompare(false); setSplit(50)
+    setPhoto(next); setCurves(identityCurves()); setValues({ ...NEUTRAL }); setActivePreset('Original'); setCompare(false); setSplit(50)
     setStatus(`${next.name} is ready to edit.`)
   }
   async function upload(file: File) {
@@ -288,6 +294,7 @@ export function Studio() {
       if (controller.signal.aborted || editRevision.current !== revisionAtStart || currentPhoto.current?.imageId !== target.imageId) return
       invalidatePreview()
       exportController.current?.abort()
+      setCurves(identityCurves())
       setValues({ ...result.adjustments })
       setEnhancement(result.recipe ?? null)
       setAssessment(result.assessment ?? [])
@@ -306,6 +313,44 @@ export function Studio() {
       enhancementMutation.reset()
     }
   }
+  async function selectPreset(preset: (typeof PRESETS)[number]) {
+    if (!photo || loading) return
+    const selectionRevision = ++presetSelectionRevision.current
+    const imageId = photo.imageId
+    const id = presetId(preset.name)
+    const apply = (values: Adjustments) => {
+      invalidateEditedWork()
+      enhancementFeedback.current = ''
+      setError('')
+      setEnhancement(null); setAssessment([]); setPreviewReady(false)
+      setCurves(identityCurves()); setValues({ ...values }); setActivePreset(preset.name)
+    }
+    const saved = presetCache.current.get(id)
+    if (saved) {
+      apply({ brightness: saved.brightness, contrast: saved.contrast, saturation: saved.saturation, warmth: saved.warmth, sharpness: saved.sharpness, vignette: saved.vignette })
+      setStatus(`${preset.name} preset applied.`)
+      return
+    }
+    apply(preset.values)
+    setStatus(`Applying ${preset.name} while loading its saved version…`)
+    let request = presetRequests.current.get(id)
+    if (!request) {
+      request = getPreset(id)
+      presetRequests.current.set(id, request)
+    }
+    try {
+      const storedPreset = await request
+      presetCache.current.set(id, storedPreset)
+      if (selectionRevision !== presetSelectionRevision.current || currentPhoto.current?.imageId !== imageId) return
+      apply({ brightness: storedPreset.brightness, contrast: storedPreset.contrast, saturation: storedPreset.saturation, warmth: storedPreset.warmth, sharpness: storedPreset.sharpness, vignette: storedPreset.vignette })
+      setStatus(`${preset.name} preset synced from the backend.`)
+    } catch (caught) {
+      if (selectionRevision !== presetSelectionRevision.current || currentPhoto.current?.imageId !== imageId) return
+      setError(errorMessage(caught, 'Could not load this saved preset. The local preview remains applied.'))
+    } finally {
+      if (presetRequests.current.get(id) === request) presetRequests.current.delete(id)
+    }
+  }
   async function downloadExport() {
     const target = currentPhoto.current
     if (!target || !previewReady || exportMutation.isPending) return
@@ -315,7 +360,7 @@ export function Studio() {
     exportController.current = controller
     setError(''); setStatus('Preparing your full-resolution JPEG…')
     try {
-      const result = await exportMutation.mutateAsync({ imageId: target.imageId, token: target.accessToken, adjustments: snapshot, crop, enhancement, signal: controller.signal })
+      const result = await exportMutation.mutateAsync({ imageId: target.imageId, token: target.accessToken, adjustments: snapshot, crop, enhancement, curves, signal: controller.signal })
       if (controller.signal.aborted || currentPhoto.current?.imageId !== target.imageId) return
       const url = URL.createObjectURL(result.blob)
       const headerName = result.contentDisposition?.match(/filename="([^"]+)"/i)?.[1]
@@ -342,55 +387,44 @@ export function Studio() {
     if (event.dataTransfer.files.length !== 1) { setError('Choose one photograph at a time.'); return }
     void upload(event.dataTransfer.files[0])
   }
-  const displayWidth = renderedCrop?.width ?? photo?.width ?? 1
-  const displayHeight = renderedCrop?.height ?? photo?.height ?? 1
-  const dirty = enhancement !== null || Object.entries(values).some(([key,value]) => value !== NEUTRAL[key as keyof Adjustments])
+  const displayWidth = (previewReady ? renderedCrop : crop)?.width ?? photo?.width ?? 1
+  const displayHeight = (previewReady ? renderedCrop : crop)?.height ?? photo?.height ?? 1
+  const dirty = !curvesAreNeutral(curves) || enhancement !== null || Object.entries(values).some(([key,value]) => value !== NEUTRAL[key as keyof Adjustments])
 
   return <div className={styles.studio}>
     <header className={styles.header}><Brand /><div className={styles.breadcrumb}><ChevronRight size={12} /><span>Editing Studio</span><span className={styles.version}>V.01</span></div><div className={styles.headerActions}><Link to="/" className={styles.backLink}><ArrowLeft size={14} /> Back to home</Link><button className="button primary" disabled={!photo || loading || !previewReady || exportMutation.isPending} onClick={event => { lastTrigger.current = event.currentTarget; setModal('export') }}><Download size={15} /><span>{exportMutation.isPending ? 'Exporting…' : 'Export image'}</span></button></div></header>
-    <div className={styles.previewNotice}><Info size={13} /><span>Your photograph is uploaded securely for editing and export. The original remains untouched.</span><span className={styles.localBadge}><span className="status-dot" /> PRIVATE SESSION</span></div>
-    <input ref={fileInput} type="file" className="sr-only" tabIndex={-1} aria-label="Photograph file" accept=".jpg,.jpeg,.png,.webp" onChange={e => { const file = e.target.files?.[0]; if (file) void upload(file); e.target.value = '' }} />
+    <input ref={fileInput} type="file" className="sr-only" tabIndex={-1} aria-label="Photograph file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" onChange={e => { const file = e.target.files?.[0]; if (file) void upload(file); e.target.value = '' }} />
     <main id="main" className={styles.workspace}>
       <aside className={`${styles.leftPanel} ${panel === 'presets' ? styles.mobileVisible : ''}`} aria-label="Upload and presets">
-        <div className={styles.panelTitle}><Layers size={15}/><h2>Your toolkit</h2><span>01</span></div>
-        <div className={styles.uploadSection}><span className={styles.label}>YOUR PHOTOGRAPH</span><button className={styles.uploadButton} onClick={() => fileInput.current?.click()} disabled={loading}><Upload size={17}/>{photo ? 'Replace photograph' : 'Upload photograph'}<span>+</span></button><p>JPG, PNG or WebP · Up to 10 MB<br/>24 MP · 10,000 px per side</p></div>
-        <div className={styles.presetSection}><div className={styles.sectionLabel}><span className={styles.label}>PRESET LIBRARY</span><span>{String(presetsQuery.data?.length ?? 0).padStart(2, '0')}</span></div><p>A starting point for your perspective.</p>{presetsQuery.isPending && <p role="status">Loading presets…</p>}{presetsQuery.isError && <p role="alert">Presets are temporarily unavailable.</p>}<div className={styles.presetList}>{presetsQuery.data?.map((preset,index) => {
-          const presetValues: Adjustments = {
-            brightness: preset.brightness,
-            contrast: preset.contrast,
-            saturation: preset.saturation,
-            warmth: preset.warmth,
-            sharpness: preset.sharpness,
-            vignette: preset.vignette,
-          }
-          return <button key={preset.preset_id} disabled={!photo} aria-pressed={activePreset === preset.preset_name} className={`${styles.preset} ${activePreset === preset.preset_name && photo ? styles.activePreset : ''}`} onClick={() => { invalidateEditedWork(); enhancementFeedback.current = ''; setEnhancement(null); setAssessment([]); setPreviewReady(false); setValues(presetValues); setActivePreset(preset.preset_name); setStatus(`${preset.preset_name} preset applied.`) }}><img src={photo?.previewUrl || '/images/alpine.jpg'} alt="" style={{filter:`saturate(${preset.saturation / 100}) contrast(${preset.contrast / 100}) sepia(${preset.warmth > 0 ? .35 : 0})`}}/><span><strong>{preset.preset_name}</strong><small>{preset.description}</small></span>{activePreset === preset.preset_name && photo ? <Check size={14}/> : <span className={styles.presetNumber}>0{index+1}</span>}</button>
-        })}</div></div>
-        <div className={styles.enhanceSection}><div><Sparkles size={17}/><span>A little assistance</span></div><p>A balanced starting point, with you in control.</p><button className="button secondary" disabled={!photo || loading || enhancementMutation.isPending} onClick={event => { lastTrigger.current = event.currentTarget; setModal('enhance') }}><Sparkles size={14}/>{enhancementMutation.isPending ? 'Analyzing…' : 'Auto Enhance'}<ArrowUpRight size={14}/></button></div>
+        <div className={styles.panelTitle}><Layers size={15}/><h2>Photo & presets</h2></div>
+        <div className={styles.uploadSection}><span className={styles.label}>Photograph</span><button className={styles.uploadButton} onClick={() => fileInput.current?.click()} disabled={loading}><Upload size={17}/>{photo ? 'Replace photograph' : 'Upload photograph'}<span>+</span></button><p>JPG, PNG or WebP · Up to 10 MB<br/>24 MP · 10,000 px per side</p></div>
+        <div className={styles.presetSection}><div className={styles.sectionLabel}><span className={styles.label}>Presets</span><span>{String(PRESETS.length).padStart(2, '0')}</span></div><p>{PRESETS.length} looks. Choose a starting point.</p>{PRESET_GROUPS.map(group => <details className={styles.presetGroup} key={group.name} open={group.name === 'Most Popular'}><summary>{group.name}<span>{group.presets.length}</span></summary><div className={styles.presetList}>{group.presets.map((preset,index) => <button key={preset.name} disabled={!photo || loading} aria-pressed={activePreset === preset.name} className={`${styles.preset} ${activePreset === preset.name && photo ? styles.activePreset : ''}`} onClick={() => void selectPreset(preset)}><img src={photo?.originalPreviewUrl || '/images/alpine.jpg'} alt="" style={{filter:`saturate(${preset.values.saturation / 100}) contrast(${preset.values.contrast / 100}) sepia(${preset.values.warmth > 0 ? .35 : 0})`}}/><span><strong>{preset.name}{preset.popular && <em className={styles.popularTag}>POPULAR</em>}</strong><small>{preset.description}</small></span>{activePreset === preset.name && photo ? <Check size={14}/> : <span className={styles.presetNumber}>0{index+1}</span>}</button>)}</div></details>)}</div>
+        <div className={styles.enhanceSection}><div><Sparkles size={17}/><span>Automatic adjustments</span></div><p>Balance the light and colour, then refine the result.</p><button className="button secondary" disabled={!photo || loading || enhancementMutation.isPending} onClick={event => { lastTrigger.current = event.currentTarget; setModal('enhance') }}><Sparkles size={14}/>{enhancementMutation.isPending ? 'Analyzing…' : 'Auto Enhance'}<ArrowUpRight size={14}/></button></div>
         <div className={styles.preserveNote}><ShieldCheck size={14}/><span>Your original stays untouched.</span></div>
       </aside>
 
       <section className={styles.center} aria-label="Photograph workspace">
-        <div className={styles.workspaceToolbar}><div><span className="status-dot"/><h1>{photo ? 'Your perspective' : 'A fresh perspective'}</h1></div><span className={styles.workspaceMode}>{photo ? (previewReady ? activePreset.toUpperCase() : 'PREVIEW OUTDATED') : 'READY WHEN YOU ARE'}</span></div>
+        <div className={styles.workspaceToolbar}><div><span className="status-dot"/><h1>{photo ? photo.name : 'Photo preview'}</h1></div><span className={styles.workspaceMode}>{photo ? (previewReady ? activePreset : 'Updating preview…') : 'No photo selected'}</span></div>
         <div className={`${styles.canvas} ${dragging ? styles.dragging : ''}`} onDragOver={e => { e.preventDefault(); setDragging(true) }} onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragging(false) }} onDrop={drop}>
-          {photo ? <><div className={styles.imageContainer} style={{ '--photo-ratio': displayWidth / displayHeight } as CSSProperties}><PhotoPreview src={photo.previewUrl} originalSrc={photo.originalPreviewUrl} name={photo.name} values={values} compare={compare} split={split} onSplit={setSplit} crop={renderedCrop} originalWidth={photo.width} originalHeight={photo.height} authoritative eager/></div>{loading && <div className={styles.loadingOverlay}><LoaderCircle className={styles.spinner} size={22}/><span>Uploading photograph…</span></div>}</> : <div className={styles.emptyState}><div className={styles.emptyIcon}><ImagePlus size={34} strokeWidth={1}/><span>+</span></div><span className="eyebrow">EVERY EDIT STARTS WITH A MOMENT</span><h2>Bring your photograph<br/>into the light.</h2><p>Drop a photograph here, or choose one from your device.<br/>A little perspective goes a long way.</p><button className="button primary" onClick={() => fileInput.current?.click()} disabled={loading}>{loading ? <LoaderCircle className={styles.spinner} size={17}/> : <Upload size={16}/>} {loading ? 'Uploading photograph…' : 'Choose a photograph'}</button><span className={styles.uploadLimits}>JPG, PNG, WEBP · MAX 10 MB · 24 MP</span><div className={styles.sampleDivider}><span/>OR EXPLORE FIRST<span/></div><button className={styles.sampleButton} onClick={() => void useSample()} disabled={loading}><img src="/images/alpine.jpg" alt="" width="47" height="36"/><span>Try a sample photograph<small>A view worth a second look.</small></span><ArrowUpRight size={16}/></button></div>}
+          {photo ? <><div className={styles.imageContainer} style={{ '--photo-ratio': displayWidth / displayHeight } as CSSProperties}><PhotoPreview src={previewReady ? photo.previewUrl : photo.originalPreviewUrl} originalSrc={photo.originalPreviewUrl} name={photo.name} values={values} curves={curves} compare={compare} split={split} onSplit={setSplit} crop={previewReady ? renderedCrop : crop} originalWidth={photo.width} originalHeight={photo.height} authoritative={previewReady} eager/></div>{loading && <div className={styles.loadingOverlay}><LoaderCircle className={styles.spinner} size={22}/><span>Uploading photograph…</span></div>}</> : <div className={styles.emptyState}><div className={styles.emptyIcon}><ImagePlus size={34} strokeWidth={1}/><span>+</span></div><h2>Open a photograph</h2><p>Drag a photo here or choose one from your device.</p><button className="button primary" onClick={() => fileInput.current?.click()} disabled={loading}>{loading ? <LoaderCircle className={styles.spinner} size={17}/> : <Upload size={16}/>} {loading ? 'Uploading photograph…' : 'Choose a photograph'}</button><span className={styles.uploadLimits}>JPG, PNG, WEBP · MAX 10 MB · 24 MP</span><div className={styles.sampleDivider}><span/>or<span/></div><button className={styles.sampleButton} onClick={() => void useSample()} disabled={loading}><img src="/images/alpine.jpg" alt="" width="47" height="36"/><span>Try a sample photograph<small>See how the editor works.</small></span><ArrowUpRight size={16}/></button></div>}
           {dragging && <div className={styles.dropOverlay}><Upload size={28}/><span>Drop one photograph to begin</span></div>}
         </div>
-        <div className={styles.workspaceBottom}><div className={styles.imageInfo}>{photo ? <><span title={photo.name}>{photo.name}</span><small>{displayWidth} × {displayHeight} <i>·</i> {photo.format}</small></> : <><span>No photograph selected</span><small>Your creative space is ready.</small></>}</div><button disabled={!photo || loading || exportMutation.isPending} onClick={() => setCropEditing(true)}><CropIcon size={15}/><span>Crop</span></button><button ref={detailTrigger} className={styles.detailButton} aria-label="100% detail" title="Inspect full-resolution detail" disabled={!photo || loading || !previewReady || exportMutation.isPending} onClick={() => setDetailOpen(true)}><Maximize2 size={15}/><span>100% detail</span></button><span className={styles.fitLabel}><Maximize2 size={13}/>Fit</span><button className={compare ? styles.compareActive : ''} disabled={!photo} aria-pressed={compare} onClick={() => setCompare(!compare)}><ScanLine size={15}/><span>Compare</span></button></div>
+        <div className={styles.workspaceBottom}><div className={styles.imageInfo}>{photo ? <><span title={photo.name}>{photo.name}</span><small>{displayWidth} × {displayHeight} <i>·</i> {photo.format}</small></> : <><span>No photograph selected</span><small>Upload a photograph to begin.</small></>}</div><button disabled={!photo || loading || exportMutation.isPending} onClick={() => setCropEditing(true)}><CropIcon size={15}/><span>Crop</span></button><button ref={detailTrigger} className={styles.detailButton} aria-label="100% detail" title="Inspect full-resolution detail" disabled={!photo || loading || !previewReady || exportMutation.isPending} onClick={() => setDetailOpen(true)}><Maximize2 size={15}/><span>100% detail</span></button><span className={styles.fitLabel}><Maximize2 size={13}/>Fit</span><button className={compare ? styles.compareActive : ''} disabled={!photo} aria-pressed={compare} onClick={() => setCompare(!compare)}><ScanLine size={15}/><span>Compare</span></button></div>
         {error && <div role="alert" className={styles.error}><Info size={16}/><span>{error}</span><button aria-label="Dismiss error" onClick={() => setError('')}><X size={15}/></button></div>}
         <div role="status" className={styles.status}>{status || 'Your original stays untouched while previews are rendered from its normalized copy.'}</div>
       </section>
 
       <div className={styles.mobileTabs} role="group" aria-label="Editing panels"><button aria-pressed={panel === 'presets'} onClick={() => setPanel('presets')}><Layers size={16}/>Presets & upload</button><button aria-pressed={panel === 'adjustments'} onClick={() => setPanel('adjustments')}><SlidersHorizontal size={16}/>Adjustments</button></div>
 
-      <aside className={`${styles.rightPanel} ${panel === 'adjustments' ? styles.mobileVisible : ''}`} aria-label="Image adjustments"><div className={styles.panelTitle}><SlidersHorizontal size={15}/><h2>Adjustments</h2><button onClick={reset} disabled={!photo || !dirty} aria-label="Reset all adjustments" title="Reset all adjustments"><RotateCcw size={14}/></button></div><div className={styles.adjustmentHeader}><span className={styles.label}>MAKE IT YOURS</span><span>{photo ? activePreset : 'Original'}</span></div>
+      <aside className={`${styles.rightPanel} ${panel === 'adjustments' ? styles.mobileVisible : ''}`} aria-label="Image adjustments"><div className={styles.panelTitle}><SlidersHorizontal size={15}/><h2>Adjustments</h2><button onClick={reset} disabled={!photo || !dirty} aria-label="Reset all adjustments" title="Reset all adjustments"><RotateCcw size={14}/></button></div><div className={styles.adjustmentHeader}><span className={styles.label}>Current look</span><span>{photo ? activePreset : 'Original'}</span></div>
         {enhancement && <fieldset className={styles.controlGroup}><legend><Sparkles size={13}/>Auto Enhance</legend><div className={styles.control}><div><label htmlFor="enhancement-strength">Auto Enhance strength</label><output htmlFor="enhancement-strength">{Math.round((enhancement.strength ?? 1) * 100)}</output></div><input id="enhancement-strength" type="range" min="0" max="100" step="1" value={Math.round((enhancement.strength ?? 1) * 100)} style={{ '--control-color': 'var(--mint)', '--range-progress': `${(enhancement.strength ?? 1) * 100}%` } as CSSProperties} onChange={event => { invalidateEditedWork(); enhancementFeedback.current = ''; setPreviewReady(false); setEnhancement({ ...enhancement, strength: Number(event.target.value) / 100 }); setStatus('Updating Auto Enhance strength…') }} onPointerUp={flushPreview} onKeyUp={flushPreview}/><div className={styles.rangeLabels}><span>Original</span><span>Full</span></div></div></fieldset>}
         {enhancement && assessment.length > 0 && <details className={styles.assessment}><summary>Editing decisions</summary><p>{enhancement.strength === 0 ? 'Automatic corrections are off.' : 'Automatic base; manual controls refine it.'}</p><ul tabIndex={0} aria-label="Automatic editing findings">{assessment.map((finding, index) => <li key={`${index}-${finding.issue}`}><strong>{finding.issue}</strong><p>{finding.action}</p>{finding.observation && <p>{finding.observation}</p>}</li>)}</ul></details>}
-        {CONTROL_GROUPS.map(group => <fieldset key={group.name} className={styles.controlGroup} disabled={!photo}><legend><span style={{background:group.color}}/>{group.name}</legend>{group.controls.map(control => <div className={styles.control} key={control.key}><div><label htmlFor={control.key}>{control.label}</label><output htmlFor={control.key}>{control.key === 'warmth' && values[control.key] > 0 ? '+' : ''}{values[control.key]}</output></div><input id={control.key} type="range" min={control.min} max={control.max} step="1" value={values[control.key]} style={{ '--control-color': group.color, '--range-progress': `${(values[control.key]-control.min)/(control.max-control.min)*100}%` } as CSSProperties} onChange={e => { invalidateEditedWork(); enhancementFeedback.current = ''; setPreviewReady(false); setValues(current => ({ ...current, [control.key]: Number(e.target.value) })); setActivePreset('Custom'); setStatus('Rendering your adjustment…') }} onPointerUp={flushPreview} onKeyUp={flushPreview}/><div className={styles.rangeLabels}><span>{control.min}</span><span>{control.max > 0 && control.min < 0 ? '+' : ''}{control.max}</span></div></div>)}</fieldset>)}
+        {CONTROL_GROUPS.map(group => <Fragment key={group.name}><fieldset className={styles.controlGroup} disabled={!photo}><legend><span style={{background:group.color}}/>{group.name}</legend>{group.controls.map(control => <div className={styles.control} key={control.key}><div><label htmlFor={control.key}>{control.label}</label><output htmlFor={control.key}>{control.key === 'warmth' && values[control.key] > 0 ? '+' : ''}{values[control.key]}</output></div><input id={control.key} type="range" min={control.min} max={control.max} step="1" value={values[control.key]} style={{ '--control-color': group.color, '--range-progress': `${(values[control.key]-control.min)/(control.max-control.min)*100}%` } as CSSProperties} onChange={e => { invalidateEditedWork(); enhancementFeedback.current = ''; setPreviewReady(false); setValues(current => ({ ...current, [control.key]: Number(e.target.value) })); setActivePreset('Custom'); setStatus('Rendering your adjustment…') }} onPointerUp={flushPreview} onKeyUp={flushPreview}/><div className={styles.rangeLabels}><span>{control.min}</span><span>{control.max > 0 && control.min < 0 ? '+' : ''}{control.max}</span></div></div>)}</fieldset>{group.name === 'Light' && <RGBCurveEditor value={curves} disabled={!photo} onChange={next => { invalidateEditedWork(); enhancementFeedback.current = ''; setPreviewReady(false); setCurves(next); setActivePreset('Custom'); setStatus('Rendering your curve…') }} onCommit={flushPreview}/>}</Fragment>)}
         <div className={styles.resetSection}><button className="button secondary" onClick={reset} disabled={!photo || !dirty}><RotateCcw size={13}/>Reset adjustments</button><p>Every adjustment starts from your original.</p></div>
       </aside>
     </main>
-    <footer className={styles.studioFooter}><span><span className="status-dot"/> LUMALAB / CREATIVE WORKSPACE</span><span>LIGHT. COLOUR. CREATE.</span><span>ONE ORIGINAL. YOUR PERSPECTIVE.</span></footer>
-    {detailOpen && photo && <DetailPreview imageId={photo.imageId} token={photo.accessToken} adjustments={values} enhancement={enhancement} crop={crop} returnFocusTo={detailTrigger.current} onClose={() => setDetailOpen(false)}/>}
+    <footer className={styles.studioFooter}><span><span className="status-dot"/> LumaLab Studio</span><span>Edit, compare, export</span><span>Your original stays unchanged.</span></footer>
+    {detailOpen && photo && <DetailPreview imageId={photo.imageId} token={photo.accessToken} adjustments={values} curves={curves} enhancement={enhancement} crop={crop} returnFocusTo={detailTrigger.current} onClose={() => setDetailOpen(false)}/>}
     {cropEditing && photo && <CropEditor src={photo.originalPreviewUrl} width={photo.width} height={photo.height} crop={crop} onCancel={() => setCropEditing(false)} onApply={next => {
       if (JSON.stringify(next) === JSON.stringify(crop)) { setCropEditing(false); return }
       invalidateEditedWork(); exportController.current?.abort(); enhancementFeedback.current = ''; setPreviewReady(false); setCrop(next); setCropEditing(false); setError(''); setStatus(next ? 'Rendering your crop…' : 'Restoring the full photograph…')

@@ -1,5 +1,6 @@
 import type { components } from './api.generated'
 
+export type RGBCurves = Required<components['schemas']['RGBCurves']>
 export type Adjustments = components['schemas']['Adjustments']
 export type Enhancement = components['schemas']['Enhancement']
 export type NaturalEnhancement = components['schemas']['NaturalEnhancement']
@@ -74,6 +75,11 @@ export async function getPresets(signal?: AbortSignal) {
   return response.json() as Promise<Preset[]>
 }
 
+export async function getPreset(presetId: string, signal?: AbortSignal) {
+  const response = await request(`/api/v1/presets/${encodeURIComponent(presetId)}`, 'GET', { signal })
+  return response.json() as Promise<Preset>
+}
+
 export async function uploadImage(file: File, signal?: AbortSignal): Promise<UploadedImage> {
   const body = new FormData()
   body.append('file', file)
@@ -94,11 +100,12 @@ export async function getPreview(
   signal?: AbortSignal,
   crop?: components['schemas']['Crop'] | null,
   enhancement?: NaturalEnhancement | null,
+  curves?: RGBCurves | null,
 ): Promise<{ blob: Blob; revision: string | null }> {
   const response = await request(`${imagePath(imageId)}/preview`, 'POST', {
     token,
     signal,
-    json: { revision, adjustments, crop, enhancement },
+    json: { revision, adjustments, crop, enhancement, curves },
   })
   return { blob: await response.blob(), revision: response.headers.get('X-Image-Revision') }
 }
@@ -115,11 +122,12 @@ export async function exportImage(
   signal?: AbortSignal,
   crop?: components['schemas']['Crop'] | null,
   enhancement?: NaturalEnhancement | null,
+  curves?: RGBCurves | null,
 ): Promise<{ blob: Blob; contentDisposition: string | null }> {
   const response = await request(`${imagePath(imageId)}/export`, 'POST', {
     token,
     signal,
-    json: { adjustments, crop, enhancement, format: 'jpeg', quality: 92 },
+    json: { adjustments, crop, enhancement, curves, format: 'jpeg', quality: 92 },
   })
   return { blob: await response.blob(), contentDisposition: response.headers.get('Content-Disposition') }
 }

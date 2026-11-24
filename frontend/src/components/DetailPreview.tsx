@@ -1,12 +1,12 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { LoaderCircle, X } from 'lucide-react'
-import { exportImage, type Adjustments, type NaturalEnhancement } from '../lib/api'
+import { exportImage, type Adjustments, type RGBCurves, type NaturalEnhancement } from '../lib/api'
 import type { Crop } from '../lib/crop'
 import styles from './DetailPreview.module.css'
 
-export function DetailPreview({ imageId, token, adjustments, enhancement, crop, onClose, returnFocusTo }: {
+export function DetailPreview({ imageId, token, adjustments, enhancement, curves, crop, onClose, returnFocusTo }: {
   imageId: string; token: string; adjustments: Adjustments; enhancement: NaturalEnhancement | null
-  crop: Crop | null; onClose: () => void; returnFocusTo: HTMLElement | null
+  curves?: RGBCurves; crop: Crop | null; onClose: () => void; returnFocusTo: HTMLElement | null
 }) {
   const id = useId()
   const dialog = useRef<HTMLDialogElement>(null)
@@ -35,7 +35,7 @@ export function DetailPreview({ imageId, token, adjustments, enhancement, crop, 
     // detail are identical to the downloadable JPEG, rather than a resized proxy.
     // Defer dispatch one task so StrictMode's setup/cleanup probe cannot start
     // a duplicate expensive render whose abandoned request holds the permit.
-    const timer = window.setTimeout(() => { void exportImage(imageId, token, adjustments, controller.signal, crop, enhancement).then(result => {
+    const timer = window.setTimeout(() => { void exportImage(imageId, token, adjustments, controller.signal, crop, enhancement, curves).then(result => {
       if (controller.signal.aborted) return
       if (result.blob.type !== 'image/jpeg') throw new Error('The detail response was not a JPEG.')
       objectUrl = URL.createObjectURL(result.blob)
@@ -44,7 +44,7 @@ export function DetailPreview({ imageId, token, adjustments, enhancement, crop, 
       if (!controller.signal.aborted) setError(caught instanceof Error ? caught.message : 'Unable to prepare the detail view.')
     }) }, 0)
     return () => { window.clearTimeout(timer); controller.abort(); if (objectUrl) URL.revokeObjectURL(objectUrl) }
-  }, [imageId, token, adjustments, crop, enhancement])
+  }, [imageId, token, adjustments, crop, enhancement, curves])
 
   return <dialog ref={dialog} className={styles.dialog} aria-labelledby={id} aria-describedby={`${id}-description`}
     onCancel={event => { event.preventDefault(); onClose() }}>

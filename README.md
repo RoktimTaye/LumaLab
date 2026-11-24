@@ -30,9 +30,13 @@ Its purpose is to provide an accessible workspace for preparing individual photo
 
 Adjust brightness, contrast, saturation, warmth, sharpness and vignette. Each control contributes to a complete editing state, allowing users to refine a preset or build their own look.
 
+### RGB point curves
+
+Shape tone and colour with smooth combined RGB and individual Red, Green and Blue curves. The collapsible control sits between Light and Colour in Studio. Add, drag or remove points, refine numeric input/output values, and reset each channel. Keyboard arrows adjust points (Shift for larger steps); Delete removes interior points. Preview, 100% detail and full-resolution export use the same curves.
+
 ### Five creative starting points
 
-The preset catalogue includes **Original, Cinematic, Golden Hour, Monochrome and Vivid**. Applying a preset replaces the full set of adjustments, and every look can be refined manually afterward.
+The studio loads **35 presets from PostgreSQL**, grouped into Most Popular, Portrait, Landscape, Film & Vintage, Black & White, Creative and Essentials. Applying a preset replaces the full set of adjustments, and every look can be refined manually afterward.
 
 ### Automatic enhancement
 

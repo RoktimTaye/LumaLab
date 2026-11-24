@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+  "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="1224pt" height="648pt" viewBox="0 0 1224 648" xmlns="http://www.w3.org/2000/svg" version="1.1">
+ <metadata>
+  <rdf:RDF xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+   <cc:Work>
+    <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/>
+    <dc:date>2026-11-24T13:18:53.648773</dc:date>
+    <dc:format>image/svg+xml</dc:format>
+    <dc:creator>
+     <cc:Agent>
+      <dc:title>Matplotlib v3.10.7, https://matplotlib.org/</dc:title>
+     </cc:Agent>
+    </dc:creator>
+   </cc:Work>
+  </rdf:RDF>
+ </metadata>
+ <defs>
+  <style type="text/css">*{stroke-linejoin: round; stroke-linecap: butt}</style>
+ </defs>
+ <g id="figure_1">
+  <g id="patch_1">
+   <path d="M 0 648 
+L 1224 648 
+L 1224 0 
+L 0 0 
+z
+" style="fill: #ffffff"/>
+  </g>
+  <g id="axes_1">
+   <g id="patch_2">
+    <path d="M 65.952 510.624 
+L 259.488 510.624 
+L 259.488 123.552 
+L 65.952 123.552 
+z
+" clip-path="url(#p97e2d63152)" style="fill: #ffffff; stroke: #172b40; stroke-width: 1.5; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_3">
+    <path d="M 929.952 531.36 
+C 986.777599 531.36 1041.283418 508.78295 1081.465184 468.601184 
+C 1121.64695 428.419418 1144.224 373.913599 1144.224 317.088 
+C 1144.224 260.262401 1121.64695 205.756582 1081.465184 165.574816 
+C 1041.283418 125.39305 986.777599 102.816 929.952 102.816 
+C 873.126401 102.816 818.620582 125.39305 778.438816 165.574816 
+C 738.25705 205.756582 715.68 260.262401 715.68 317.088 
+C 715.68 373.913599 738.25705 428.419418 778.438816 468.601184 
+C 818.620582 508.78295 873.126401 531.36 929.952 531.36 
+z
+" clip-path="url(#p97e2d63152)" style="fill: #ffffff; stroke: #172b40; stroke-width: 1.5; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_4">
+    <path d="M 261.485528 158.112 
+Q 522.888172 158.112 783.005077 158.112 
+" clip-path="url(#p97e2d63152)" style="fill: none; stroke: #172b40; stroke-width: 1.15; stroke-linecap: round"/>
+    <path d="M 777.805077 155.512 
+L 783.005077 158.112 
+L 777.805077 160.712 
+z
+" clip-path="url(#p97e2d63152)" style="fill: #172b40; stroke: #172b40; stroke-width: 1.15; stroke-linecap: round"/>
+   </g>
+   <g id="patch_5">
+    <path d="M 738.564136 216.864 
+Q 500.025727 216.864 262.773057 216.864 
+" clip-path="url(#p97e2d63152)" style="fill: none; stroke: #172b40; stroke-width: 1.15; stroke-linecap: round"/>
+    <path d="M 267.973057 219.464 
+L 262.773057 216.864 
+L 267.973057 214.264 
+z
+" clip-path="url(#p97e2d63152)" style="fill: #172b40; stroke: #172b40; stroke-width: 1.15; stroke-linecap: round"/>
+   </g>
+   <g id="patch_6">
+    <path d="M 261.485976 275.616 
+Q 489.607208 275.616 716.442701 275.616 
+" clip-path="url(#p97e2d63152)" style="fill: none; stroke: #172b40; stroke-width: 1.15; stroke-linecap: round"/>
+    <path d="M 711.242701 273.016 
+L 716.442701 275.616 
+L 711.242701 278.216 
+z
+" clip-path="url(#p97e2d63152)" style="fill: #172b40; stroke: #172b40; stroke-width: 1.15; stroke-linecap: round"/>
+   </g>
+   <g id="patch_7">
+    <path d="M 715.46909 344.736 
+Q 488.478717 344.736 262.774083 344.736 
+" clip-path="url(#p97e2d63152)" style="fill: none; stroke: #172b40; stroke-width: 1.15; stroke-linecap: round"/>
+    <path d="M 267.974083 347.336 
+L 262.774083 344.736 
+L 267.974083 342.136 
+z
+" clip-path="url(#p97e2d63152)" style="fill: #172b40; stroke: #172b40; stroke-width: 1.15; stroke-linecap: round"/>
+   </g>
+   <g id="patch_8">
+    <path d="M 261.48835 410.4 
+Q 498.277105 410.4 733.780122 410.4 
+" clip-path="url(#p97e2d63152)" style="fill: none; stroke: #172b40; stroke-width: 1.15; stroke-linecap: round"/>
+    <path d="M 728.580122 407.8 
+L 733.780122 410.4 
+L 728.580122 413 
+z
+" clip-path="url(#p97e2d63152)" style="fill: #172b40; stroke: #172b40; stroke-width: 1.15; stroke-linecap: round"/>
+   </g>
+   <g id="patch_9">
+    <path d="M 780.555181 472.608 
+Q 521.02141 472.608 262.773379 472.608 
+" clip-path="url(#p97e2d63152)" style="fill: none; stroke: #172b40; stroke-width: 1.15; stroke-linecap: round"/>
+    <path d="M 267.973379 475.208 
+L 262.773379 472.608 
+L 267.973379 470.008 
+z
+" clip-path="url(#p97e2d63152)" style="fill: #172b40; stroke: #172b40; stroke-width: 1.15; stroke-linecap: round"/>
+   </g>
+   <g id="text_1">
+    <text style="font-weight: 700; font-size: 23px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #172b40" x="59.04" y="54.432" transform="rotate(-0 59.04 54.432)">LumaLab | DFD Level 0</text>
+   </g>
+   <g id="text_2">
+    <text style="font-size: 11px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #526477" x="59.04" y="86.2272" transform="rotate(-0 59.04 86.2272)">Context diagram · Yourdon–DeMarco notation</text>
+   </g>
+   <g id="text_3">
+    <text style="font-size: 12px; font-family: 'DejaVu Sans'; fill: #172b40" transform="translate(155.11125 300.243188)">E1</text>
+    <text style="font-size: 12px; font-family: 'DejaVu Sans'; fill: #172b40" transform="translate(162.72 313.680563)"/>
+    <text style="font-size: 12px; font-family: 'DejaVu Sans'; fill: #172b40" transform="translate(149.044687 327.117938)">User</text>
+    <text style="font-size: 12px; font-family: 'DejaVu Sans'; fill: #172b40" transform="translate(121.167187 340.555313)">(photo editor)</text>
+   </g>
+   <g id="text_4">
+    <text style="font-weight: 700; font-size: 12px; font-family: 'DejaVu Sans'; text-anchor: middle; fill: #172b40" x="929.952" y="196.12149" transform="rotate(-0 929.952 196.12149)">0</text>
+   </g>
+   <g id="text_5">
+    <text style="font-size: 11px; font-family: 'DejaVu Sans'; fill: #172b40" transform="translate(904.843641 333.100445)">LumaLab</text>
+    <text style="font-size: 11px; font-family: 'DejaVu Sans'; fill: #172b40" transform="translate(893.358953 345.835953)">Photo Editing</text>
+    <text style="font-size: 11px; font-family: 'DejaVu Sans'; fill: #172b40" transform="translate(909.442156 358.57146)">System</text>
+   </g>
+   <g id="text_6">
+    <text style="font-size: 11px; font-family: 'DejaVu Sans'; text-anchor: middle; fill: #172b40" x="522.888389" y="146.838744" transform="rotate(-0 522.888389 146.838744)">Photograph and filename</text>
+   </g>
+   <g id="text_7">
+    <text style="font-size: 11px; font-family: 'DejaVu Sans'; text-anchor: middle; fill: #172b40" x="500.026231" y="205.590744" transform="rotate(-0 500.026231 205.590744)">Image session details and access token</text>
+   </g>
+   <g id="text_8">
+    <text style="font-size: 11px; font-family: 'DejaVu Sans'; fill: #172b40" transform="translate(383.701348 250.771408)">Preset request; enhancement request;</text>
+    <text style="font-size: 11px; font-family: 'DejaVu Sans'; fill: #172b40" transform="translate(397.195254 264.342744)">edit settings and preview request</text>
+   </g>
+   <g id="text_9">
+    <text style="font-size: 11px; font-family: 'DejaVu Sans'; fill: #172b40" transform="translate(343.020943 319.891408)">Preset definitions; enhancement recipe and findings;</text>
+    <text style="font-size: 11px; font-family: 'DejaVu Sans'; fill: #172b40" transform="translate(410.350396 333.462744)">original and edited previews</text>
+   </g>
+   <g id="text_10">
+    <text style="font-size: 11px; font-family: 'DejaVu Sans'; text-anchor: middle; fill: #172b40" x="498.276544" y="399.126744" transform="rotate(-0 498.276544 399.126744)">Export settings and request; deletion request</text>
+   </g>
+   <g id="text_11">
+    <text style="font-size: 11px; font-family: 'DejaVu Sans'; fill: #172b40" transform="translate(421.486725 447.763408)">Full-resolution JPEG; deletion status;</text>
+    <text style="font-size: 11px; font-family: 'DejaVu Sans'; fill: #172b40" transform="translate(435.76524 461.334744)">validation and operation errors</text>
+   </g>
+   <g id="text_12">
+    <text style="font-size: 11px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #172b40" x="65.952" y="559.008" transform="rotate(-0 65.952 559.008)">Image-scoped requests include the image ID and bearer token returned at upload.</text>
+   </g>
+   <g id="text_13">
+    <text style="font-size: 10.5px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #526477" x="65.952" y="590.112" transform="rotate(-0 65.952 590.112)">Internal storage is expanded in Level 1. The current application has no user accounts.</text>
+   </g>
+  </g>
+ </g>
+ <defs>
+  <clipPath id="p97e2d63152">
+   <rect x="24.48" y="12.96" width="1175.04" height="622.08"/>
+  </clipPath>
+ </defs>
+</svg>

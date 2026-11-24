@@ -30,7 +30,8 @@ class SeedTests(unittest.TestCase):
 
     def test_invalid_final_seed_is_rejected_before_any_upsert(self):
         connection = MagicMock()
-        for row in ((*PRESETS[-1][:-1], 101), PRESETS[-1][:-1], (*PRESETS[-1], 0)):
+        invalid_vignette = (*PRESETS[-1][:8], 101, *PRESETS[-1][9:])
+        for row in (invalid_vignette, PRESETS[-1][:-1], (*PRESETS[-1], 0)):
             with self.subTest(length=len(row)), patch("app.db.seed.PRESETS", (*PRESETS[:-1], row)):
                 with self.assertRaises(ValueError):
                     seed_presets(connection)
