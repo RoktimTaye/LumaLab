@@ -1,0 +1,70 @@
+# yaml-language-server: $schema=https://www.coderabbit.ai/integrations/schema.v2.json
+# Review guidance only: enforce CI and release gates separately in the Git host.
+version: 2
+language: en-US
+reviews:
+  profile: assertive
+  path_instructions:
+    - path: "**/*"
+      instructions: |
+        Apply docs/CODERABBIT_SAAS_CHECKLIST.md and the completed feature testing
+        record in the PR. Trace changed behavior through callers and consumers.
+        LumaLab is an anonymous photo editor with private process-local image
+        sessions, Neon PostgreSQL presets, and deterministic enhancement.
+        Give actionable issues with control ID, location, reachable trigger,
+        impact, concrete fix and regression test. Distinguish new defects from
+        pre-existing risks and future-feature requirements. Never claim runtime
+        tests/scans passed without evidence. Identify untested high-risk controls.
+    - path: "backend/app/**"
+      instructions: |
+        Prioritize image-specific bearer authorization on every private action,
+        streamed multipart and decoded image bounds, strict edit/recipe schemas,
+        hostile decoder inputs, private no-store responses, safe file paths,
+        cleanup races and permit/reader release after failures. Check sustained
+        expensive-route abuse as well as concurrency, event-loop/threadpool
+        starvation, native allocations and disk write amplification. Preserve
+        normalized-source immutability and preview/detail/export recipe parity.
+    - path: "backend/app/db/**"
+      instructions: |
+        Verify parameterized values and safe allowlisted SQL identifiers,
+        least-privilege runtime versus migration roles, bounded pool/statement
+        waits, transaction rollback and connection hygiene, catalogue invariants
+        and redacted failure behavior. Require real DB evidence where mocks
+        cannot establish TLS, permissions, transaction or migration behavior.
+    - path: "backend/migrations/**"
+      instructions: |
+        Check previous-version upgrade, concurrent migration locking, partial
+        failure, seed consistency, constraints, application compatibility and
+        recovery. Flag destructive or long-locking operations with concrete
+        impact. Do not assume rollback is safe after a destructive migration.
+    - path: "frontend/src/**"
+      instructions: |
+        Check complete edit snapshots, image identity plus revision on async
+        completion, stale response rejection, export/detail invalidation,
+        upload replacement cleanup, abort handling, Blob URL lifecycle and
+        bounded history/cache. Keep tokens out of persistent storage/telemetry.
+        Review XSS sinks, contract changes, retry storms, accessibility, mobile
+        usability and actual exported dimensions/state.
+    - path: "**/tests/**"
+      instructions: |
+        Assess meaningful output assertions and negative, boundary, concurrent,
+        failure and regression coverage. Distinguish mock fixture behavior from
+        real DB/production behavior. Never infer a passing test from its name.
+    - path: "Dockerfile"
+      instructions: |
+        Verify non-root operation, private writable scratch, dependency/build
+        integrity, absence of secrets/photos in layers and production entrypoint.
+        Preserve one worker/one replica until shared session/limit/storage
+        coordination exists. Require real container resource and proxy evidence.
+    - path: ".github/workflows/**"
+      instructions: |
+        Check least CI permissions, untrusted PR input/secret isolation, supply
+        chain pinning and reproducible locked builds. Ensure required checks
+        cover final commits and do not confuse isolated fake catalogue tests
+        with real PostgreSQL integration or load/security verification.
+knowledge_base:
+  code_guidelines:
+    enabled: true
+    filePatterns:
+      - "docs/CODERABBIT_SAAS_CHECKLIST.md"
+      - "docs/FEATURE_TEST_CHECKLIST.md"
